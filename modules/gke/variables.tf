@@ -17,3 +17,10 @@ variable "network_id" {
 variable "subnet_id" {
   type = string
 }
+variable "service_account_email" {
+  description = "Service account used by GKE nodes."
+  type        = string
+}
+variable "zone" {
+  type = string
+}
