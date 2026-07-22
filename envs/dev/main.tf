@@ -17,10 +17,31 @@ module "network" {
 module "gke" {
   source = "../../modules/gke"
 
+  project_id            = var.project_id
+  environment           = var.environment
+  region                = var.region
+  zone                  = var.zone
+  network_id            = module.network.network_id
+  subnet_id             = module.network.subnet_id
+  service_account_email = module.iam.gke_service_account_email
+}
+
+module "iam" {
+  source = "../../modules/iam"
+
   project_id  = var.project_id
   environment = var.environment
-  region      = var.region
-
-  network_id = module.network.network_id
-  subnet_id  = module.network.subnet_id
 }
+
+
+module "artifact_registry" {
+
+  source = "../../modules/artifact-registry"
+
+  project_id  = var.project_id
+  region       = var.region
+  environment  = var.environment
+
+  repository_id = var.artifact_registry_repository_id
+}
+

@@ -18,3 +18,10 @@ variable "environment" {
     error_message = "Environment must be one of: dev, stage, or prod."
   }
 }
+variable "zone" {
+  type = string
+}
+
+variable "artifact_registry_repository_id" {
+  type = string
+}
