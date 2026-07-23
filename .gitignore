@@ -9,6 +9,9 @@
 crash.log
 crash.*.log
 
+.env
+.env.*
+
 # Terraform plan files
 *.tfplan
 tfplan
