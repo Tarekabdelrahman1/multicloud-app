@@ -1,0 +1,1835 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+from textwrap import dedent
+
+
+def find_root() -> Path:
+    cwd = Path.cwd().resolve()
+    if (cwd / "services" / "device-service" / "Dockerfile").exists():
+        return cwd
+    if cwd.name == "device-service" and cwd.parent.name == "services":
+        root = cwd.parent.parent
+        if (root / "services" / "device-service" / "Dockerfile").exists():
+            return root
+    raise SystemExit(
+        "Run this script from the devops-portfolio root or from services/device-service."
+    )
+
+
+ROOT = find_root()
+STAMP = datetime.now().strftime("%Y%m%d-%H%M%S")
+BACKUP = ROOT / ".platform-backups" / STAMP
+
+
+def backup(paths: list[str]) -> None:
+    for rel in paths:
+        src = ROOT / rel
+        if not src.exists():
+            continue
+        dst = BACKUP / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if src.is_dir():
+            shutil.copytree(src, dst)
+        else:
+            shutil.copy2(src, dst)
+
+
+def write(rel: str, content: str, executable: bool = False) -> None:
+    path = ROOT / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(dedent(content).lstrip(), encoding="utf-8")
+    if executable:
+        path.chmod(0o755)
+    print(f"wrote {rel}")
+
+
+def dockerfile(service_path: str) -> str:
+    return f"""
+    FROM python:3.12-slim AS builder
+
+    ENV PYTHONDONTWRITEBYTECODE=1 \\
+        PYTHONUNBUFFERED=1 \\
+        PATH="/opt/venv/bin:$PATH"
+
+    RUN python -m venv /opt/venv
+    COPY {service_path}/requirements.txt /tmp/requirements.txt
+    RUN pip install --no-cache-dir --upgrade pip \\
+        && pip install --no-cache-dir -r /tmp/requirements.txt
+
+    FROM python:3.12-slim AS runtime
+
+    ENV PYTHONDONTWRITEBYTECODE=1 \\
+        PYTHONUNBUFFERED=1 \\
+        PATH="/opt/venv/bin:$PATH" \\
+        PYTHONPATH="/opt/common:/app"
+
+    RUN groupadd --gid 10001 appgroup \\
+        && useradd --uid 10001 --gid appgroup --create-home --shell /usr/sbin/nologin appuser
+
+    WORKDIR /app
+    COPY --from=builder /opt/venv /opt/venv
+    COPY libs/common/common /opt/common/common
+    COPY {service_path}/app /app/app
+
+    RUN chown -R appuser:appgroup /app /opt/common
+    USER 10001:10001
+
+    EXPOSE 8080
+    HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \\
+      CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/live')"
+
+    CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+    """
+
+
+def generate() -> None:
+    backup(
+        [
+            "services/api-gateway",
+            "services/inventory-service",
+            "services/workflow-service",
+            "services/notification-service",
+            "services/audit-service",
+            "libs/common",
+            "infra/postgres",
+            "scripts/platform-smoke-test.sh",
+            "docker-compose.platform.yml",
+            ".env.platform.example",
+            "PLATFORM-README.md",
+            "Makefile.platform",
+        ]
+    )
+    print(f"Backup created at: {BACKUP}")
+
+    write(
+        "libs/common/common/__init__.py",
+        '''
+        """Shared runtime helpers for the telecom platform services."""
+        ''',
+    )
+
+    write(
+        "libs/common/common/http.py",
+        r'''
+        import json
+        import logging
+        import time
+        from uuid import uuid4
+
+        from fastapi import FastAPI, Request
+
+
+        def configure_logging() -> None:
+            logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+
+        def add_http_middleware(app: FastAPI, service_name: str) -> None:
+            logger = logging.getLogger(service_name)
+
+            @app.middleware("http")
+            async def request_context(request: Request, call_next):
+                request_id = request.headers.get("x-request-id") or str(uuid4())
+                request.state.request_id = request_id
+                started = time.perf_counter()
+
+                try:
+                    response = await call_next(request)
+                except Exception:
+                    logger.exception(
+                        json.dumps(
+                            {
+                                "event": "request_failed",
+                                "service": service_name,
+                                "request_id": request_id,
+                                "method": request.method,
+                                "path": request.url.path,
+                            }
+                        )
+                    )
+                    raise
+
+                duration_ms = round((time.perf_counter() - started) * 1000, 2)
+                response.headers["x-request-id"] = request_id
+                logger.info(
+                    json.dumps(
+                        {
+                            "event": "request_completed",
+                            "service": service_name,
+                            "request_id": request_id,
+                            "method": request.method,
+                            "path": request.url.path,
+                            "status_code": response.status_code,
+                            "duration_ms": duration_ms,
+                        }
+                    )
+                )
+                return response
+        ''',
+    )
+
+    write(
+        "libs/common/common/events.py",
+        r'''
+        import asyncio
+        import json
+        import logging
+        from collections.abc import Awaitable, Callable, Iterable
+        from datetime import UTC, datetime
+        from typing import Any
+        from uuid import UUID, uuid4
+
+        import aio_pika
+        from aio_pika import DeliveryMode, ExchangeType, Message
+        from pydantic import BaseModel, Field
+
+        logger = logging.getLogger("platform.events")
+
+
+        class EventEnvelope(BaseModel):
+            event_id: UUID = Field(default_factory=uuid4)
+            event_type: str
+            source: str
+            occurred_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+            correlation_id: str | None = None
+            data: dict[str, Any] = Field(default_factory=dict)
+
+
+        class EventPublisher:
+            def __init__(self, rabbitmq_url: str, exchange_name: str = "platform.events") -> None:
+                self.rabbitmq_url = rabbitmq_url
+                self.exchange_name = exchange_name
+                self.connection: aio_pika.RobustConnection | None = None
+                self.channel = None
+                self.exchange = None
+
+            async def start(self) -> None:
+                if self.connection and not self.connection.is_closed:
+                    return
+                self.connection = await aio_pika.connect_robust(self.rabbitmq_url)
+                self.channel = await self.connection.channel(publisher_confirms=True)
+                self.exchange = await self.channel.declare_exchange(
+                    self.exchange_name,
+                    ExchangeType.TOPIC,
+                    durable=True,
+                )
+
+            async def close(self) -> None:
+                if self.connection and not self.connection.is_closed:
+                    await self.connection.close()
+
+            async def publish(self, event: EventEnvelope) -> None:
+                if not self.exchange:
+                    await self.start()
+                body = event.model_dump_json().encode("utf-8")
+                message = Message(
+                    body=body,
+                    content_type="application/json",
+                    delivery_mode=DeliveryMode.PERSISTENT,
+                    correlation_id=event.correlation_id,
+                    message_id=str(event.event_id),
+                    timestamp=event.occurred_at,
+                )
+                await self.exchange.publish(message, routing_key=event.event_type)
+
+
+        async def consume_events(
+            *,
+            rabbitmq_url: str,
+            queue_name: str,
+            binding_keys: Iterable[str],
+            handler: Callable[[EventEnvelope], Awaitable[None]],
+            exchange_name: str = "platform.events",
+            prefetch_count: int = 10,
+        ) -> None:
+            binding_keys = list(binding_keys)
+            while True:
+                try:
+                    connection = await aio_pika.connect_robust(rabbitmq_url)
+                    async with connection:
+                        channel = await connection.channel()
+                        await channel.set_qos(prefetch_count=prefetch_count)
+                        exchange = await channel.declare_exchange(
+                            exchange_name, ExchangeType.TOPIC, durable=True
+                        )
+                        dlx = await channel.declare_exchange(
+                            "platform.dlx", ExchangeType.DIRECT, durable=True
+                        )
+                        queue = await channel.declare_queue(
+                            queue_name,
+                            durable=True,
+                            arguments={
+                                "x-dead-letter-exchange": "platform.dlx",
+                                "x-dead-letter-routing-key": queue_name,
+                            },
+                        )
+                        dlq = await channel.declare_queue(f"{queue_name}.dlq", durable=True)
+                        await dlq.bind(dlx, routing_key=queue_name)
+                        for key in binding_keys:
+                            await queue.bind(exchange, routing_key=key)
+
+                        logger.info(
+                            json.dumps(
+                                {
+                                    "event": "consumer_started",
+                                    "queue": queue_name,
+                                    "bindings": binding_keys,
+                                }
+                            )
+                        )
+                        async with queue.iterator() as iterator:
+                            async for message in iterator:
+                                async with message.process(requeue=False):
+                                    event = EventEnvelope.model_validate_json(message.body)
+                                    await handler(event)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception("Consumer failed; retrying in 5 seconds")
+                    await asyncio.sleep(5)
+        ''',
+    )
+
+    gateway_requirements = '''
+    fastapi>=0.115,<1
+    uvicorn[standard]>=0.30,<1
+    httpx>=0.27,<1
+    redis>=5,<7
+    pydantic-settings>=2.6,<3
+    python-jose[cryptography]>=3.3,<4
+    '''
+    write("services/api-gateway/requirements.txt", gateway_requirements)
+    write("services/api-gateway/Dockerfile", dockerfile("services/api-gateway"))
+    write("services/api-gateway/app/__init__.py", "")
+    write(
+        "services/api-gateway/app/main.py",
+        r'''
+        import asyncio
+        import secrets
+        import time
+        from contextlib import asynccontextmanager
+        from datetime import UTC, datetime, timedelta
+        from typing import Any
+
+        import httpx
+        import redis.asyncio as redis
+        from fastapi import FastAPI, HTTPException, Request
+        from fastapi.responses import JSONResponse, Response
+        from jose import JWTError, jwt
+        from pydantic import BaseModel
+        from pydantic_settings import BaseSettings, SettingsConfigDict
+
+        from common.http import add_http_middleware, configure_logging
+
+
+        class Settings(BaseSettings):
+            model_config = SettingsConfigDict(case_sensitive=False)
+            service_name: str = "api-gateway"
+            redis_url: str = "redis://redis:6379/0"
+            jwt_secret: str = "change-me"
+            jwt_algorithm: str = "HS256"
+            access_token_minutes: int = 60
+            admin_username: str = "admin"
+            admin_password: str = "change-me"
+            rate_limit_per_minute: int = 120
+            device_service_url: str = "http://device-service:8080"
+            inventory_service_url: str = "http://inventory-service:8080"
+            workflow_service_url: str = "http://workflow-service:8080"
+            notification_service_url: str = "http://notification-service:8080"
+            audit_service_url: str = "http://audit-service:8080"
+
+
+        settings = Settings()
+        configure_logging()
+
+        SERVICE_MAP = {
+            "devices": settings.device_service_url,
+            "inventory": settings.inventory_service_url,
+            "workflows": settings.workflow_service_url,
+            "notifications": settings.notification_service_url,
+            "audit": settings.audit_service_url,
+        }
+
+
+        class LoginRequest(BaseModel):
+            username: str
+            password: str
+
+
+        def create_access_token(subject: str) -> str:
+            expires = datetime.now(UTC) + timedelta(minutes=settings.access_token_minutes)
+            return jwt.encode(
+                {"sub": subject, "role": "admin", "exp": expires},
+                settings.jwt_secret,
+                algorithm=settings.jwt_algorithm,
+            )
+
+
+        def decode_token(token: str) -> dict[str, Any]:
+            try:
+                return jwt.decode(
+                    token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+                )
+            except JWTError as exc:
+                raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
+
+
+        def require_auth(request: Request) -> dict[str, Any]:
+            scheme, _, token = request.headers.get("authorization", "").partition(" ")
+            if scheme.lower() != "bearer" or not token:
+                raise HTTPException(status_code=401, detail="Bearer token is required")
+            return decode_token(token)
+
+
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0))
+            app.state.redis = redis.from_url(settings.redis_url, decode_responses=True)
+            yield
+            await app.state.http.aclose()
+            await app.state.redis.aclose()
+
+
+        app = FastAPI(title="Telecom Platform API Gateway", version="3.0.0", lifespan=lifespan)
+        add_http_middleware(app, settings.service_name)
+
+
+        @app.middleware("http")
+        async def rate_limit(request: Request, call_next):
+            if request.url.path.startswith("/health"):
+                return await call_next(request)
+            client_ip = request.client.host if request.client else "unknown"
+            key = f"rate-limit:{client_ip}:{int(time.time() // 60)}"
+            try:
+                count = await request.app.state.redis.incr(key)
+                if count == 1:
+                    await request.app.state.redis.expire(key, 70)
+                if count > settings.rate_limit_per_minute:
+                    return JSONResponse(
+                        status_code=429,
+                        content={"detail": "Rate limit exceeded"},
+                        headers={"retry-after": "60"},
+                    )
+            except Exception:
+                pass
+            return await call_next(request)
+
+
+        @app.get("/health/live")
+        def live():
+            return {"status": "alive", "service": settings.service_name}
+
+
+        @app.get("/health/ready")
+        async def ready(request: Request):
+            checks: dict[str, str] = {}
+            try:
+                await request.app.state.redis.ping()
+                checks["redis"] = "ready"
+            except Exception:
+                checks["redis"] = "not_ready"
+
+            async def check(name: str, url: str) -> tuple[str, str]:
+                try:
+                    response = await request.app.state.http.get(f"{url}/health/live")
+                    return name, "ready" if response.is_success else "not_ready"
+                except Exception:
+                    return name, "not_ready"
+
+            checks.update(
+                await asyncio.gather(*(check(name, url) for name, url in SERVICE_MAP.items()))
+            )
+            ok = all(value == "ready" for value in checks.values())
+            return JSONResponse(
+                status_code=200 if ok else 503,
+                content={"status": "ready" if ok else "not_ready", "checks": checks},
+            )
+
+
+        @app.post("/auth/login")
+        def login(payload: LoginRequest):
+            valid = secrets.compare_digest(payload.username, settings.admin_username)
+            valid = valid and secrets.compare_digest(
+                payload.password, settings.admin_password
+            )
+            if not valid:
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+            return {
+                "access_token": create_access_token(payload.username),
+                "token_type": "bearer",
+                "expires_in": settings.access_token_minutes * 60,
+            }
+
+
+        METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+
+
+        @app.api_route("/api/v1/{service}", methods=METHODS)
+        @app.api_route("/api/v1/{service}/{path:path}", methods=METHODS)
+        async def proxy(service: str, request: Request, path: str = ""):
+            require_auth(request)
+            base_url = SERVICE_MAP.get(service)
+            if not base_url:
+                raise HTTPException(status_code=404, detail="Unknown service route")
+            suffix = f"/api/v1/{service}" + (f"/{path}" if path else "")
+            headers = {
+                key: value
+                for key, value in request.headers.items()
+                if key.lower() not in {"host", "content-length"}
+            }
+            headers["x-request-id"] = getattr(request.state, "request_id", "")
+            try:
+                upstream = await request.app.state.http.request(
+                    request.method,
+                    f"{base_url}{suffix}",
+                    params=request.query_params,
+                    content=await request.body(),
+                    headers=headers,
+                )
+            except httpx.RequestError as exc:
+                raise HTTPException(status_code=502, detail=f"Upstream unavailable: {service}") from exc
+            excluded = {
+                "content-encoding",
+                "transfer-encoding",
+                "connection",
+                "content-length",
+            }
+            return Response(
+                content=upstream.content,
+                status_code=upstream.status_code,
+                headers={
+                    key: value
+                    for key, value in upstream.headers.items()
+                    if key.lower() not in excluded
+                },
+                media_type=upstream.headers.get("content-type"),
+            )
+        ''',
+    )
+
+    base_requirements = '''
+    fastapi>=0.115,<1
+    uvicorn[standard]>=0.30,<1
+    sqlalchemy>=2.0,<3
+    psycopg[binary]>=3.2,<4
+    pydantic-settings>=2.6,<3
+    aio-pika>=9.4,<10
+    '''
+
+    write("services/inventory-service/requirements.txt", base_requirements)
+    write("services/inventory-service/Dockerfile", dockerfile("services/inventory-service"))
+    write("services/inventory-service/app/__init__.py", "")
+    write(
+        "services/inventory-service/app/main.py",
+        r'''
+        from contextlib import asynccontextmanager
+        from datetime import UTC, datetime
+        from uuid import UUID, uuid4
+
+        from fastapi import FastAPI, HTTPException, Query, Request, Response, status
+        from pydantic import BaseModel, Field
+        from pydantic_settings import BaseSettings, SettingsConfigDict
+        from sqlalchemy import DateTime, Integer, String, create_engine, select
+        from sqlalchemy.dialects.postgresql import UUID as PGUUID
+        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+
+        from common.events import EventEnvelope, EventPublisher
+        from common.http import add_http_middleware, configure_logging
+
+
+        class Settings(BaseSettings):
+            model_config = SettingsConfigDict(case_sensitive=False)
+            service_name: str = "inventory-service"
+            database_url: str = "postgresql+psycopg://platform:platform_password@postgres:5432/inventory_db"
+            rabbitmq_url: str = "amqp://platform:platform_password@rabbitmq:5672/"
+
+
+        settings = Settings()
+        configure_logging()
+        engine = create_engine(settings.database_url, pool_pre_ping=True)
+        SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+
+
+        class Base(DeclarativeBase):
+            pass
+
+
+        class InventoryItem(Base):
+            __tablename__ = "inventory_items"
+            id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+            name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+            category: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+            quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+            low_stock_threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+            location: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+            created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+            updated_at: Mapped[datetime] = mapped_column(
+                DateTime(timezone=True),
+                default=lambda: datetime.now(UTC),
+                onupdate=lambda: datetime.now(UTC),
+            )
+
+
+        class InventoryCreate(BaseModel):
+            name: str = Field(min_length=1, max_length=255)
+            category: str = Field(min_length=1, max_length=100)
+            quantity: int = Field(ge=0)
+            low_stock_threshold: int = Field(default=5, ge=0)
+            location: str = Field(min_length=1, max_length=255)
+
+
+        class InventoryUpdate(BaseModel):
+            name: str | None = None
+            category: str | None = None
+            quantity: int | None = Field(default=None, ge=0)
+            low_stock_threshold: int | None = Field(default=None, ge=0)
+            location: str | None = None
+
+
+        class InventoryRead(BaseModel):
+            id: UUID
+            name: str
+            category: str
+            quantity: int
+            low_stock_threshold: int
+            location: str
+            created_at: datetime
+            updated_at: datetime
+            model_config = {"from_attributes": True}
+
+
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            Base.metadata.create_all(engine)
+            app.state.publisher = EventPublisher(settings.rabbitmq_url)
+            await app.state.publisher.start()
+            yield
+            await app.state.publisher.close()
+
+
+        app = FastAPI(title="Inventory Service", version="3.0.0", lifespan=lifespan)
+        add_http_middleware(app, settings.service_name)
+
+
+        @app.get("/health/live")
+        def live():
+            return {"status": "alive", "service": settings.service_name}
+
+
+        @app.get("/health/ready")
+        def ready():
+            try:
+                with engine.connect() as connection:
+                    connection.exec_driver_sql("SELECT 1")
+                return {"status": "ready"}
+            except Exception as exc:
+                raise HTTPException(status_code=503, detail="Database not ready") from exc
+
+
+        @app.get("/api/v1/inventory", response_model=list[InventoryRead])
+        def list_inventory(limit: int = Query(100, ge=1, le=500), offset: int = Query(0, ge=0)):
+            with SessionLocal() as db:
+                return list(db.scalars(select(InventoryItem).order_by(InventoryItem.name).offset(offset).limit(limit)))
+
+
+        @app.get("/api/v1/inventory/{item_id}", response_model=InventoryRead)
+        def get_inventory(item_id: UUID):
+            with SessionLocal() as db:
+                item = db.get(InventoryItem, item_id)
+                if not item:
+                    raise HTTPException(status_code=404, detail="Inventory item not found")
+                return item
+
+
+        @app.post("/api/v1/inventory", response_model=InventoryRead, status_code=201)
+        async def create_inventory(payload: InventoryCreate, request: Request):
+            with SessionLocal() as db:
+                item = InventoryItem(**payload.model_dump())
+                db.add(item)
+                db.commit()
+                db.refresh(item)
+            data = InventoryRead.model_validate(item).model_dump(mode="json")
+            await request.app.state.publisher.publish(
+                EventEnvelope(
+                    event_type="inventory.created",
+                    source=settings.service_name,
+                    correlation_id=getattr(request.state, "request_id", None),
+                    data=data,
+                )
+            )
+            if item.quantity <= item.low_stock_threshold:
+                await request.app.state.publisher.publish(
+                    EventEnvelope(
+                        event_type="inventory.low_stock",
+                        source=settings.service_name,
+                        correlation_id=getattr(request.state, "request_id", None),
+                        data=data,
+                    )
+                )
+            return item
+
+
+        @app.patch("/api/v1/inventory/{item_id}", response_model=InventoryRead)
+        async def update_inventory(item_id: UUID, payload: InventoryUpdate, request: Request):
+            with SessionLocal() as db:
+                item = db.get(InventoryItem, item_id)
+                if not item:
+                    raise HTTPException(status_code=404, detail="Inventory item not found")
+                for field, value in payload.model_dump(exclude_unset=True).items():
+                    setattr(item, field, value)
+                db.commit()
+                db.refresh(item)
+            event_type = "inventory.low_stock" if item.quantity <= item.low_stock_threshold else "inventory.updated"
+            await request.app.state.publisher.publish(
+                EventEnvelope(
+                    event_type=event_type,
+                    source=settings.service_name,
+                    correlation_id=getattr(request.state, "request_id", None),
+                    data=InventoryRead.model_validate(item).model_dump(mode="json"),
+                )
+            )
+            return item
+
+
+        @app.delete("/api/v1/inventory/{item_id}", status_code=204)
+        async def delete_inventory(item_id: UUID, request: Request):
+            with SessionLocal() as db:
+                item = db.get(InventoryItem, item_id)
+                if not item:
+                    raise HTTPException(status_code=404, detail="Inventory item not found")
+                data = InventoryRead.model_validate(item).model_dump(mode="json")
+                db.delete(item)
+                db.commit()
+            await request.app.state.publisher.publish(
+                EventEnvelope(
+                    event_type="inventory.deleted",
+                    source=settings.service_name,
+                    correlation_id=getattr(request.state, "request_id", None),
+                    data=data,
+                )
+            )
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+        ''',
+    )
+
+    write("services/workflow-service/requirements.txt", base_requirements)
+    write("services/workflow-service/Dockerfile", dockerfile("services/workflow-service"))
+    write("services/workflow-service/app/__init__.py", "")
+    write(
+        "services/workflow-service/app/settings.py",
+        r'''
+        from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+        class Settings(BaseSettings):
+            model_config = SettingsConfigDict(case_sensitive=False)
+            service_name: str = "workflow-service"
+            database_url: str = "postgresql+psycopg://platform:platform_password@postgres:5432/workflow_db"
+            rabbitmq_url: str = "amqp://platform:platform_password@rabbitmq:5672/"
+            execution_mode: str = "mock"
+
+
+        settings = Settings()
+        ''',
+    )
+    write(
+        "services/workflow-service/app/domain.py",
+        r'''
+        from datetime import UTC, datetime
+        from uuid import UUID, uuid4
+
+        from pydantic import BaseModel, Field
+        from sqlalchemy import DateTime, JSON, String, Text, create_engine
+        from sqlalchemy.dialects.postgresql import UUID as PGUUID
+        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+
+        from .settings import settings
+
+        engine = create_engine(settings.database_url, pool_pre_ping=True)
+        SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+
+
+        class Base(DeclarativeBase):
+            pass
+
+
+        class Workflow(Base):
+            __tablename__ = "workflows"
+            id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+            name: Mapped[str] = mapped_column(String(255), nullable=False)
+            device_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True, index=True)
+            action: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+            parameters: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+            state: Mapped[str] = mapped_column(String(30), nullable=False, default="pending", index=True)
+            result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+            error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+            created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+            updated_at: Mapped[datetime] = mapped_column(
+                DateTime(timezone=True),
+                default=lambda: datetime.now(UTC),
+                onupdate=lambda: datetime.now(UTC),
+            )
+
+
+        class WorkflowCreate(BaseModel):
+            name: str = Field(min_length=1, max_length=255)
+            device_id: UUID | None = None
+            action: str = Field(min_length=1, max_length=100)
+            parameters: dict = Field(default_factory=dict)
+
+
+        class WorkflowRead(BaseModel):
+            id: UUID
+            name: str
+            device_id: UUID | None
+            action: str
+            parameters: dict
+            state: str
+            result: dict | None
+            error_message: str | None
+            created_at: datetime
+            updated_at: datetime
+            model_config = {"from_attributes": True}
+        ''',
+    )
+    write(
+        "services/workflow-service/app/main.py",
+        r'''
+        from contextlib import asynccontextmanager
+        from uuid import UUID
+
+        from fastapi import FastAPI, HTTPException, Query, Request
+        from sqlalchemy import select
+
+        from common.events import EventEnvelope, EventPublisher
+        from common.http import add_http_middleware, configure_logging
+        from .domain import Base, SessionLocal, Workflow, WorkflowCreate, WorkflowRead, engine
+        from .settings import settings
+
+        configure_logging()
+
+
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            Base.metadata.create_all(engine)
+            app.state.publisher = EventPublisher(settings.rabbitmq_url)
+            await app.state.publisher.start()
+            yield
+            await app.state.publisher.close()
+
+
+        app = FastAPI(title="Workflow Service", version="3.0.0", lifespan=lifespan)
+        add_http_middleware(app, settings.service_name)
+
+
+        @app.get("/health/live")
+        def live():
+            return {"status": "alive", "service": settings.service_name}
+
+
+        @app.get("/health/ready")
+        def ready():
+            try:
+                with engine.connect() as connection:
+                    connection.exec_driver_sql("SELECT 1")
+                return {"status": "ready"}
+            except Exception as exc:
+                raise HTTPException(status_code=503, detail="Database not ready") from exc
+
+
+        @app.get("/api/v1/workflows", response_model=list[WorkflowRead])
+        def list_workflows(limit: int = Query(100, ge=1, le=500), offset: int = Query(0, ge=0)):
+            with SessionLocal() as db:
+                return list(db.scalars(select(Workflow).order_by(Workflow.created_at.desc()).offset(offset).limit(limit)))
+
+
+        @app.get("/api/v1/workflows/{workflow_id}", response_model=WorkflowRead)
+        def get_workflow(workflow_id: UUID):
+            with SessionLocal() as db:
+                workflow = db.get(Workflow, workflow_id)
+                if not workflow:
+                    raise HTTPException(status_code=404, detail="Workflow not found")
+                return workflow
+
+
+        @app.post("/api/v1/workflows", response_model=WorkflowRead, status_code=201)
+        async def create_workflow(payload: WorkflowCreate, request: Request):
+            with SessionLocal() as db:
+                workflow = Workflow(**payload.model_dump(), state="pending")
+                db.add(workflow)
+                db.commit()
+                db.refresh(workflow)
+            await request.app.state.publisher.publish(
+                EventEnvelope(
+                    event_type="workflow.created",
+                    source=settings.service_name,
+                    correlation_id=getattr(request.state, "request_id", None),
+                    data=WorkflowRead.model_validate(workflow).model_dump(mode="json"),
+                )
+            )
+            return workflow
+
+
+        @app.post("/api/v1/workflows/{workflow_id}/run", response_model=WorkflowRead, status_code=202)
+        async def queue_workflow(workflow_id: UUID, request: Request):
+            with SessionLocal() as db:
+                workflow = db.get(Workflow, workflow_id)
+                if not workflow:
+                    raise HTTPException(status_code=404, detail="Workflow not found")
+                if workflow.state not in {"pending", "failed"}:
+                    raise HTTPException(status_code=409, detail=f"Cannot run from state {workflow.state}")
+                workflow.state = "queued"
+                workflow.error_message = None
+                db.commit()
+                db.refresh(workflow)
+                data = WorkflowRead.model_validate(workflow).model_dump(mode="json")
+            await request.app.state.publisher.publish(
+                EventEnvelope(
+                    event_type="workflow.execute",
+                    source=settings.service_name,
+                    correlation_id=getattr(request.state, "request_id", None),
+                    data=data,
+                )
+            )
+            return workflow
+        ''',
+    )
+    write(
+        "services/workflow-service/app/worker.py",
+        r'''
+        import asyncio
+        import logging
+        import time
+        from typing import Any
+        from uuid import UUID
+
+        from common.events import EventEnvelope, EventPublisher, consume_events
+        from common.http import configure_logging
+        from .domain import Base, SessionLocal, Workflow, engine
+        from .settings import settings
+
+        configure_logging()
+        logger = logging.getLogger(settings.service_name + ".worker")
+
+
+        def execute_workflow(action: str, parameters: dict[str, Any]) -> dict[str, Any]:
+            if settings.execution_mode != "mock":
+                raise RuntimeError(
+                    "Real execution is disabled until an approved Nokia/NSP adapter exists."
+                )
+            time.sleep(1)
+            if action.startswith("fail_"):
+                raise RuntimeError("Mock failure requested by action name")
+            return {
+                "mode": "mock",
+                "action": action,
+                "parameters_received": parameters,
+                "message": "Workflow simulated; no device was changed.",
+            }
+
+
+        def mark_running(workflow_id: UUID) -> tuple[str, dict[str, Any]]:
+            with SessionLocal() as db:
+                workflow = db.get(Workflow, workflow_id)
+                if not workflow:
+                    raise RuntimeError(f"Workflow {workflow_id} does not exist")
+                workflow.state = "running"
+                db.commit()
+                return workflow.action, workflow.parameters
+
+
+        def mark_finished(workflow_id: UUID, result: dict | None, error: str | None) -> dict:
+            with SessionLocal() as db:
+                workflow = db.get(Workflow, workflow_id)
+                if not workflow:
+                    raise RuntimeError(f"Workflow {workflow_id} does not exist")
+                workflow.state = "failed" if error else "completed"
+                workflow.result = result
+                workflow.error_message = error
+                db.commit()
+                db.refresh(workflow)
+                return {
+                    "id": str(workflow.id),
+                    "name": workflow.name,
+                    "device_id": str(workflow.device_id) if workflow.device_id else None,
+                    "action": workflow.action,
+                    "state": workflow.state,
+                    "result": workflow.result,
+                    "error_message": workflow.error_message,
+                }
+
+
+        async def main() -> None:
+            Base.metadata.create_all(engine)
+            publisher = EventPublisher(settings.rabbitmq_url)
+            await publisher.start()
+
+            async def handler(event: EventEnvelope) -> None:
+                workflow_id = UUID(str(event.data["id"]))
+                action, parameters = await asyncio.to_thread(mark_running, workflow_id)
+                try:
+                    result = await asyncio.to_thread(execute_workflow, action, parameters)
+                    snapshot = await asyncio.to_thread(mark_finished, workflow_id, result, None)
+                    event_type = "workflow.completed"
+                except Exception as exc:
+                    logger.exception("Workflow execution failed")
+                    snapshot = await asyncio.to_thread(mark_finished, workflow_id, None, str(exc))
+                    event_type = "workflow.failed"
+                await publisher.publish(
+                    EventEnvelope(
+                        event_type=event_type,
+                        source=settings.service_name + ".worker",
+                        correlation_id=event.correlation_id,
+                        data=snapshot,
+                    )
+                )
+
+            try:
+                await consume_events(
+                    rabbitmq_url=settings.rabbitmq_url,
+                    queue_name="workflow.executor",
+                    binding_keys=["workflow.execute"],
+                    handler=handler,
+                    prefetch_count=1,
+                )
+            finally:
+                await publisher.close()
+
+
+        if __name__ == "__main__":
+            asyncio.run(main())
+        ''',
+    )
+
+    write("services/notification-service/requirements.txt", base_requirements)
+    write("services/notification-service/Dockerfile", dockerfile("services/notification-service"))
+    write("services/notification-service/app/__init__.py", "")
+    write(
+        "services/notification-service/app/domain.py",
+        r'''
+        from datetime import UTC, datetime
+        from uuid import UUID, uuid4
+
+        from pydantic import BaseModel, Field
+        from pydantic_settings import BaseSettings, SettingsConfigDict
+        from sqlalchemy import DateTime, JSON, String, Text, create_engine
+        from sqlalchemy.dialects.postgresql import UUID as PGUUID
+        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+
+
+        class Settings(BaseSettings):
+            model_config = SettingsConfigDict(case_sensitive=False)
+            service_name: str = "notification-service"
+            database_url: str = "postgresql+psycopg://platform:platform_password@postgres:5432/notification_db"
+            rabbitmq_url: str = "amqp://platform:platform_password@rabbitmq:5672/"
+
+
+        settings = Settings()
+        engine = create_engine(settings.database_url, pool_pre_ping=True)
+        SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+
+
+        class Base(DeclarativeBase):
+            pass
+
+
+        class Notification(Base):
+            __tablename__ = "notifications"
+            id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+            channel: Mapped[str] = mapped_column(String(50), nullable=False, default="console")
+            recipient: Mapped[str] = mapped_column(String(255), nullable=False, default="operations")
+            subject: Mapped[str] = mapped_column(String(255), nullable=False)
+            body: Mapped[str] = mapped_column(Text, nullable=False)
+            status: Mapped[str] = mapped_column(String(30), nullable=False, default="sent")
+            source_event_type: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+            source_event_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True, unique=True)
+            payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+            created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
+        class NotificationCreate(BaseModel):
+            channel: str = "console"
+            recipient: str = "operations"
+            subject: str = Field(min_length=1, max_length=255)
+            body: str = Field(min_length=1)
+
+
+        class NotificationRead(BaseModel):
+            id: UUID
+            channel: str
+            recipient: str
+            subject: str
+            body: str
+            status: str
+            source_event_type: str | None
+            source_event_id: UUID | None
+            payload: dict
+            created_at: datetime
+            model_config = {"from_attributes": True}
+        ''',
+    )
+    write(
+        "services/notification-service/app/main.py",
+        r'''
+        from contextlib import asynccontextmanager
+
+        from fastapi import FastAPI, HTTPException, Query
+        from sqlalchemy import select
+
+        from common.http import add_http_middleware, configure_logging
+        from .domain import Base, Notification, NotificationCreate, NotificationRead, SessionLocal, engine, settings
+
+        configure_logging()
+
+
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            Base.metadata.create_all(engine)
+            yield
+
+
+        app = FastAPI(title="Notification Service", version="3.0.0", lifespan=lifespan)
+        add_http_middleware(app, settings.service_name)
+
+
+        @app.get("/health/live")
+        def live():
+            return {"status": "alive", "service": settings.service_name}
+
+
+        @app.get("/health/ready")
+        def ready():
+            try:
+                with engine.connect() as connection:
+                    connection.exec_driver_sql("SELECT 1")
+                return {"status": "ready"}
+            except Exception as exc:
+                raise HTTPException(status_code=503, detail="Database not ready") from exc
+
+
+        @app.get("/api/v1/notifications", response_model=list[NotificationRead])
+        def list_notifications(limit: int = Query(100, ge=1, le=500), offset: int = Query(0, ge=0)):
+            with SessionLocal() as db:
+                return list(db.scalars(select(Notification).order_by(Notification.created_at.desc()).offset(offset).limit(limit)))
+
+
+        @app.post("/api/v1/notifications", response_model=NotificationRead, status_code=201)
+        def create_notification(payload: NotificationCreate):
+            with SessionLocal() as db:
+                notification = Notification(**payload.model_dump(), status="sent")
+                db.add(notification)
+                db.commit()
+                db.refresh(notification)
+                return notification
+        ''',
+    )
+    write(
+        "services/notification-service/app/consumer.py",
+        r'''
+        import asyncio
+        import json
+        import logging
+
+        from sqlalchemy import select
+        from common.events import EventEnvelope, consume_events
+        from common.http import configure_logging
+        from .domain import Base, Notification, SessionLocal, engine, settings
+
+        configure_logging()
+        logger = logging.getLogger(settings.service_name + ".consumer")
+
+
+        def store_notification(event: EventEnvelope) -> None:
+            with SessionLocal() as db:
+                if db.scalar(select(Notification).where(Notification.source_event_id == event.event_id)):
+                    return
+                if event.event_type == "workflow.completed":
+                    subject = "Workflow completed"
+                    body = f"Workflow {event.data.get('name') or event.data.get('id')} completed successfully."
+                elif event.event_type == "workflow.failed":
+                    subject = "Workflow failed"
+                    body = f"Workflow {event.data.get('name') or event.data.get('id')} failed: {event.data.get('error_message')}"
+                else:
+                    subject = "Inventory low stock"
+                    body = (
+                        f"{event.data.get('name')} at {event.data.get('location')} has quantity "
+                        f"{event.data.get('quantity')} (threshold {event.data.get('low_stock_threshold')})."
+                    )
+                db.add(
+                    Notification(
+                        channel="console",
+                        recipient="operations",
+                        subject=subject,
+                        body=body,
+                        status="sent",
+                        source_event_type=event.event_type,
+                        source_event_id=event.event_id,
+                        payload=event.data,
+                    )
+                )
+                db.commit()
+                logger.info(json.dumps({"event": "notification_sent", "subject": subject}))
+
+
+        async def main() -> None:
+            Base.metadata.create_all(engine)
+
+            async def handler(event: EventEnvelope) -> None:
+                await asyncio.to_thread(store_notification, event)
+
+            await consume_events(
+                rabbitmq_url=settings.rabbitmq_url,
+                queue_name="notification.events",
+                binding_keys=["workflow.completed", "workflow.failed", "inventory.low_stock"],
+                handler=handler,
+            )
+
+
+        if __name__ == "__main__":
+            asyncio.run(main())
+        ''',
+    )
+
+    write("services/audit-service/requirements.txt", base_requirements)
+    write("services/audit-service/Dockerfile", dockerfile("services/audit-service"))
+    write("services/audit-service/app/__init__.py", "")
+    write(
+        "services/audit-service/app/domain.py",
+        r'''
+        from datetime import datetime
+        from uuid import UUID, uuid4
+
+        from pydantic import BaseModel
+        from pydantic_settings import BaseSettings, SettingsConfigDict
+        from sqlalchemy import DateTime, JSON, String, create_engine
+        from sqlalchemy.dialects.postgresql import UUID as PGUUID
+        from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+
+
+        class Settings(BaseSettings):
+            model_config = SettingsConfigDict(case_sensitive=False)
+            service_name: str = "audit-service"
+            database_url: str = "postgresql+psycopg://platform:platform_password@postgres:5432/audit_db"
+            rabbitmq_url: str = "amqp://platform:platform_password@rabbitmq:5672/"
+
+
+        settings = Settings()
+        engine = create_engine(settings.database_url, pool_pre_ping=True)
+        SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+
+
+        class Base(DeclarativeBase):
+            pass
+
+
+        class AuditEvent(Base):
+            __tablename__ = "audit_events"
+            id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+            event_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False, unique=True, index=True)
+            event_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+            source: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+            correlation_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+            occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+            payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+
+        class AuditRead(BaseModel):
+            id: UUID
+            event_id: UUID
+            event_type: str
+            source: str
+            correlation_id: str | None
+            occurred_at: datetime
+            payload: dict
+            model_config = {"from_attributes": True}
+        ''',
+    )
+    write(
+        "services/audit-service/app/main.py",
+        r'''
+        from contextlib import asynccontextmanager
+
+        from fastapi import FastAPI, HTTPException, Query
+        from sqlalchemy import select
+
+        from common.http import add_http_middleware, configure_logging
+        from .domain import AuditEvent, AuditRead, Base, SessionLocal, engine, settings
+
+        configure_logging()
+
+
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            Base.metadata.create_all(engine)
+            yield
+
+
+        app = FastAPI(title="Audit Service", version="3.0.0", lifespan=lifespan)
+        add_http_middleware(app, settings.service_name)
+
+
+        @app.get("/health/live")
+        def live():
+            return {"status": "alive", "service": settings.service_name}
+
+
+        @app.get("/health/ready")
+        def ready():
+            try:
+                with engine.connect() as connection:
+                    connection.exec_driver_sql("SELECT 1")
+                return {"status": "ready"}
+            except Exception as exc:
+                raise HTTPException(status_code=503, detail="Database not ready") from exc
+
+
+        @app.get("/api/v1/audit", response_model=list[AuditRead])
+        def list_events(limit: int = Query(100, ge=1, le=500), offset: int = Query(0, ge=0)):
+            with SessionLocal() as db:
+                return list(db.scalars(select(AuditEvent).order_by(AuditEvent.occurred_at.desc()).offset(offset).limit(limit)))
+        ''',
+    )
+    write(
+        "services/audit-service/app/consumer.py",
+        r'''
+        import asyncio
+
+        from sqlalchemy import select
+        from common.events import EventEnvelope, consume_events
+        from common.http import configure_logging
+        from .domain import AuditEvent, Base, SessionLocal, engine, settings
+
+        configure_logging()
+
+
+        def store_event(event: EventEnvelope) -> None:
+            with SessionLocal() as db:
+                if db.scalar(select(AuditEvent).where(AuditEvent.event_id == event.event_id)):
+                    return
+                db.add(
+                    AuditEvent(
+                        event_id=event.event_id,
+                        event_type=event.event_type,
+                        source=event.source,
+                        correlation_id=event.correlation_id,
+                        occurred_at=event.occurred_at,
+                        payload=event.data,
+                    )
+                )
+                db.commit()
+
+
+        async def main() -> None:
+            Base.metadata.create_all(engine)
+
+            async def handler(event: EventEnvelope) -> None:
+                await asyncio.to_thread(store_event, event)
+
+            await consume_events(
+                rabbitmq_url=settings.rabbitmq_url,
+                queue_name="audit.all-events",
+                binding_keys=["#"],
+                handler=handler,
+                prefetch_count=20,
+            )
+
+
+        if __name__ == "__main__":
+            asyncio.run(main())
+        ''',
+    )
+
+    write(
+        "infra/postgres/init-databases.sh",
+        r'''
+        #!/bin/sh
+        set -eu
+        export PGPASSWORD="${POSTGRES_PASSWORD}"
+
+        until pg_isready -h postgres -U "${POSTGRES_USER}" -d postgres >/dev/null 2>&1; do
+          sleep 1
+        done
+
+        for database in device_db inventory_db workflow_db notification_db audit_db; do
+          exists="$(psql -h postgres -U "${POSTGRES_USER}" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${database}'")"
+          if [ "$exists" != "1" ]; then
+            echo "Creating database: ${database}"
+            psql -h postgres -U "${POSTGRES_USER}" -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"${database}\""
+          else
+            echo "Database already exists: ${database}"
+          fi
+        done
+        ''',
+        executable=True,
+    )
+
+    write(
+        ".env.platform.example",
+        '''
+        POSTGRES_USER=platform
+        POSTGRES_PASSWORD=platform_password
+        RABBITMQ_USER=platform
+        RABBITMQ_PASSWORD=platform_password
+        JWT_SECRET=replace-this-with-a-long-random-secret
+        GATEWAY_ADMIN_USERNAME=admin
+        GATEWAY_ADMIN_PASSWORD=change-this-password
+        RATE_LIMIT_PER_MINUTE=120
+        WORKFLOW_EXECUTION_MODE=mock
+        ''',
+    )
+
+    write(
+        "docker-compose.platform.yml",
+        r'''
+        name: telecom-platform
+
+        x-common-service: &common-service
+          restart: unless-stopped
+          networks:
+            - platform-net
+
+        x-common-environment: &common-environment
+          RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+
+        services:
+          postgres:
+            <<: *common-service
+            image: postgres:16-alpine
+            environment:
+              POSTGRES_USER: ${POSTGRES_USER}
+              POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+              POSTGRES_DB: postgres
+            volumes:
+              - postgres-data:/var/lib/postgresql/data
+            healthcheck:
+              test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d postgres"]
+              interval: 5s
+              timeout: 5s
+              retries: 20
+
+          db-init:
+            image: postgres:16-alpine
+            networks: [platform-net]
+            depends_on:
+              postgres:
+                condition: service_healthy
+            environment:
+              POSTGRES_USER: ${POSTGRES_USER}
+              POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            volumes:
+              - ./infra/postgres/init-databases.sh:/init-databases.sh:ro
+            entrypoint: ["/bin/sh", "/init-databases.sh"]
+            restart: "no"
+
+          rabbitmq:
+            <<: *common-service
+            image: rabbitmq:3.13-management-alpine
+            environment:
+              RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+              RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+            ports:
+              - "15672:15672"
+            volumes:
+              - rabbitmq-data:/var/lib/rabbitmq
+            healthcheck:
+              test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+              interval: 10s
+              timeout: 5s
+              retries: 20
+
+          redis:
+            <<: *common-service
+            image: redis:7-alpine
+            command: ["redis-server", "--appendonly", "yes"]
+            volumes:
+              - redis-data:/data
+            healthcheck:
+              test: ["CMD", "redis-cli", "ping"]
+              interval: 5s
+              timeout: 3s
+              retries: 20
+
+          device-service:
+            <<: *common-service
+            build:
+              context: ./services/device-service
+            environment:
+              DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/device_db
+              LOG_LEVEL: INFO
+            command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8080"]
+            depends_on:
+              db-init:
+                condition: service_completed_successfully
+            ports:
+              - "8085:8080"
+
+          inventory-service:
+            <<: *common-service
+            build:
+              context: .
+              dockerfile: services/inventory-service/Dockerfile
+            environment:
+              <<: *common-environment
+              DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/inventory_db
+            depends_on:
+              db-init:
+                condition: service_completed_successfully
+              rabbitmq:
+                condition: service_healthy
+            ports:
+              - "8081:8080"
+
+          workflow-service:
+            <<: *common-service
+            build:
+              context: .
+              dockerfile: services/workflow-service/Dockerfile
+            environment:
+              <<: *common-environment
+              DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/workflow_db
+              EXECUTION_MODE: ${WORKFLOW_EXECUTION_MODE}
+            depends_on:
+              db-init:
+                condition: service_completed_successfully
+              rabbitmq:
+                condition: service_healthy
+            ports:
+              - "8082:8080"
+
+          workflow-worker:
+            <<: *common-service
+            build:
+              context: .
+              dockerfile: services/workflow-service/Dockerfile
+            command: ["python", "-m", "app.worker"]
+            environment:
+              <<: *common-environment
+              DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/workflow_db
+              EXECUTION_MODE: ${WORKFLOW_EXECUTION_MODE}
+            depends_on:
+              workflow-service:
+                condition: service_healthy
+              rabbitmq:
+                condition: service_healthy
+
+          notification-service:
+            <<: *common-service
+            build:
+              context: .
+              dockerfile: services/notification-service/Dockerfile
+            environment:
+              <<: *common-environment
+              DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/notification_db
+            depends_on:
+              db-init:
+                condition: service_completed_successfully
+            ports:
+              - "8083:8080"
+
+          notification-consumer:
+            <<: *common-service
+            build:
+              context: .
+              dockerfile: services/notification-service/Dockerfile
+            command: ["python", "-m", "app.consumer"]
+            environment:
+              <<: *common-environment
+              DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/notification_db
+            depends_on:
+              notification-service:
+                condition: service_healthy
+              rabbitmq:
+                condition: service_healthy
+
+          audit-service:
+            <<: *common-service
+            build:
+              context: .
+              dockerfile: services/audit-service/Dockerfile
+            environment:
+              <<: *common-environment
+              DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/audit_db
+            depends_on:
+              db-init:
+                condition: service_completed_successfully
+            ports:
+              - "8084:8080"
+
+          audit-consumer:
+            <<: *common-service
+            build:
+              context: .
+              dockerfile: services/audit-service/Dockerfile
+            command: ["python", "-m", "app.consumer"]
+            environment:
+              <<: *common-environment
+              DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/audit_db
+            depends_on:
+              audit-service:
+                condition: service_healthy
+              rabbitmq:
+                condition: service_healthy
+
+          api-gateway:
+            <<: *common-service
+            build:
+              context: .
+              dockerfile: services/api-gateway/Dockerfile
+            environment:
+              REDIS_URL: redis://redis:6379/0
+              JWT_SECRET: ${JWT_SECRET}
+              ADMIN_USERNAME: ${GATEWAY_ADMIN_USERNAME}
+              ADMIN_PASSWORD: ${GATEWAY_ADMIN_PASSWORD}
+              RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE}
+              DEVICE_SERVICE_URL: http://device-service:8080
+              INVENTORY_SERVICE_URL: http://inventory-service:8080
+              WORKFLOW_SERVICE_URL: http://workflow-service:8080
+              NOTIFICATION_SERVICE_URL: http://notification-service:8080
+              AUDIT_SERVICE_URL: http://audit-service:8080
+            depends_on:
+              redis:
+                condition: service_healthy
+              device-service:
+                condition: service_healthy
+              inventory-service:
+                condition: service_healthy
+              workflow-service:
+                condition: service_healthy
+              notification-service:
+                condition: service_healthy
+              audit-service:
+                condition: service_healthy
+            ports:
+              - "8080:8080"
+
+        networks:
+          platform-net:
+            driver: bridge
+
+        volumes:
+          postgres-data:
+          rabbitmq-data:
+          redis-data:
+        ''',
+    )
+
+    write(
+        "scripts/platform-smoke-test.sh",
+        r'''
+        #!/usr/bin/env bash
+        set -Eeuo pipefail
+
+        BASE_URL="${BASE_URL:-http://localhost:8080}"
+        USERNAME="${GATEWAY_ADMIN_USERNAME:-admin}"
+        PASSWORD="${GATEWAY_ADMIN_PASSWORD:-change-this-password}"
+
+        json_field() {
+          python3 -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$1"
+        }
+
+        for _ in $(seq 1 60); do
+          curl -fsS "$BASE_URL/health/live" >/dev/null 2>&1 && break
+          sleep 2
+        done
+
+        LOGIN="$(curl -fsS -X POST "$BASE_URL/auth/login" \
+          -H 'content-type: application/json' \
+          -d "{\"username\":\"$USERNAME\",\"password\":\"$PASSWORD\"}")"
+        TOKEN="$(printf '%s' "$LOGIN" | json_field access_token)"
+        AUTH=(-H "authorization: Bearer $TOKEN" -H 'content-type: application/json')
+
+        echo "Creating low-stock inventory..."
+        curl -fsS -X POST "$BASE_URL/api/v1/inventory" "${AUTH[@]}" \
+          -d '{"name":"Nokia 100G SFP","category":"optic","quantity":2,"low_stock_threshold":5,"location":"Cairo Warehouse"}'
+        printf '\n'
+
+        echo "Creating mock workflow..."
+        WORKFLOW="$(curl -fsS -X POST "$BASE_URL/api/v1/workflows" "${AUTH[@]}" \
+          -d '{"name":"Backup Cairo Router","action":"backup_config","parameters":{"destination":"gcs","format":"md-cli"}}')"
+        WORKFLOW_ID="$(printf '%s' "$WORKFLOW" | json_field id)"
+        printf '%s\n' "$WORKFLOW"
+
+        echo "Queuing workflow $WORKFLOW_ID..."
+        curl -fsS -X POST "$BASE_URL/api/v1/workflows/$WORKFLOW_ID/run" "${AUTH[@]}"
+        printf '\n'
+        sleep 4
+
+        echo "Workflow result:"
+        curl -fsS "$BASE_URL/api/v1/workflows/$WORKFLOW_ID" "${AUTH[@]}"
+        printf '\n\nNotifications:\n'
+        curl -fsS "$BASE_URL/api/v1/notifications" "${AUTH[@]}"
+        printf '\n\nAudit events:\n'
+        curl -fsS "$BASE_URL/api/v1/audit" "${AUTH[@]}"
+        printf '\n'
+        ''',
+        executable=True,
+    )
+
+    write(
+        "Makefile.platform",
+        r'''
+        SHELL := /bin/bash
+        COMPOSE := docker compose --env-file .env.platform -f docker-compose.platform.yml
+
+        .PHONY: up down logs ps rebuild smoke clean-data
+        up:
+        	$(COMPOSE) up --build -d
+        down:
+        	$(COMPOSE) down
+        logs:
+        	$(COMPOSE) logs -f --tail=200
+        ps:
+        	$(COMPOSE) ps
+        rebuild:
+        	$(COMPOSE) build --no-cache
+        smoke:
+        	set -a; source .env.platform; set +a; ./scripts/platform-smoke-test.sh
+        clean-data:
+        	$(COMPOSE) down -v
+        ''',
+    )
+
+    write(
+        "PLATFORM-README.md",
+        r'''
+        # Telecom Platform — Phase 3
+
+        This phase adds PostgreSQL persistence, RabbitMQ event flow, workers/consumers,
+        Redis rate limiting, JWT gateway login, shared request IDs, and a smoke test.
+
+        ## Start
+
+        ```bash
+        cp .env.platform.example .env.platform
+        nano .env.platform
+        docker compose --env-file .env.platform -f docker-compose.platform.yml up --build -d
+        ```
+
+        Gateway: `http://localhost:8080`
+        RabbitMQ UI: `http://localhost:15672`
+
+        Direct debug ports: Inventory `8081`, Workflow `8082`, Notification `8083`,
+        Audit `8084`, Device `8085`.
+
+        ## Test
+
+        ```bash
+        set -a; source .env.platform; set +a
+        ./scripts/platform-smoke-test.sh
+        ```
+
+        ## Safety boundary
+
+        Workflow execution remains `mock`. It changes workflow state and publishes
+        events, but it does not connect to a router or execute Nokia commands.
+
+        ## Still required before production
+
+        - Alembic migrations for the four new databases; they currently use `create_all`.
+        - Device Service transactional outbox and RabbitMQ event publishing.
+        - Secret Manager/Vault, real user storage, password hashing, refresh tokens, full RBAC.
+        - TLS/mTLS, Prometheus, OpenTelemetry, Loki, dashboards, alerts, and SLOs.
+        - Integration/contract/failure tests.
+        - Kubernetes, Helm, Argo CD, and CI/CD.
+        ''',
+    )
+
+    dockerignore = ROOT / ".dockerignore"
+    marker = "# BEGIN TELECOM PLATFORM GENERATED"
+    block = dedent(
+        '''
+        # BEGIN TELECOM PLATFORM GENERATED
+        .git
+        .platform-backups
+        **/__pycache__
+        **/*.py[cod]
+        **/.pytest_cache
+        **/.mypy_cache
+        **/.venv
+        .env
+        .env.platform
+        # END TELECOM PLATFORM GENERATED
+        '''
+    ).lstrip()
+    if dockerignore.exists():
+        current = dockerignore.read_text(encoding="utf-8")
+        if marker not in current:
+            dockerignore.write_text(current.rstrip() + "\n\n" + block, encoding="utf-8")
+    else:
+        dockerignore.write_text(block, encoding="utf-8")
+
+    env_path = ROOT / ".env.platform"
+    if not env_path.exists():
+        shutil.copy2(ROOT / ".env.platform.example", env_path)
+        print("created .env.platform")
+    else:
+        print("kept existing .env.platform unchanged")
+
+
+def validate() -> None:
+    py_files = list((ROOT / "services").glob("*/app/*.py")) + list(
+        (ROOT / "libs" / "common" / "common").glob("*.py")
+    )
+    for path in py_files:
+        compile(path.read_text(encoding="utf-8"), str(path), "exec")
+    print(f"Python syntax valid for {len(py_files)} generated files.")
+
+    if shutil.which("docker"):
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "compose",
+                    "--env-file",
+                    ".env.platform",
+                    "-f",
+                    "docker-compose.platform.yml",
+                    "config",
+                ],
+                cwd=ROOT,
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
+            print("Docker Compose configuration is valid.")
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print("WARNING: Docker Compose validation failed. Review the output with:")
+            print("docker compose --env-file .env.platform -f docker-compose.platform.yml config")
+
+
+def main() -> None:
+    os.chdir(ROOT)
+    generate()
+    validate()
+    print(
+        """
+Phase 3 generated successfully.
+
+1) Review secrets:
+   nano .env.platform
+
+2) Start the platform:
+   docker compose --env-file .env.platform -f docker-compose.platform.yml up --build -d
+
+3) Watch logs:
+   docker compose --env-file .env.platform -f docker-compose.platform.yml logs -f --tail=200
+
+4) Test readiness:
+   curl http://localhost:8080/health/ready
+
+5) Run the end-to-end test:
+   set -a; source .env.platform; set +a
+   ./scripts/platform-smoke-test.sh
+
+Workflow execution is MOCK and will not touch real routers.
+"""
+    )
+
+
+if __name__ == "__main__":
+    main()

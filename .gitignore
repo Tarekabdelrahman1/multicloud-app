@@ -38,3 +38,13 @@ service-account*.json
 .vscode/
 .idea/
 .DS_Store
+
+# Python microservices
+**/.venv/
+**/.env
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/

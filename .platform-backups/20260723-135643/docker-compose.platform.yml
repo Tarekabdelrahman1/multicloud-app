@@ -1,0 +1,110 @@
+services:
+  device-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: device_db
+      POSTGRES_USER: device_user
+      POSTGRES_PASSWORD: device_password
+    volumes:
+      - device_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U device_user -d device_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  device-service:
+    build:
+      context: ./services/device-service
+    environment:
+      DATABASE_URL: postgresql+psycopg://device_user:device_password@device-postgres:5432/device_db
+    depends_on:
+      device-postgres:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - |
+        alembic upgrade head
+        exec uvicorn app.main:app --host 0.0.0.0 --port 8080
+
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  workflow-service:
+    build:
+      context: ./services/workflow-service
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  audit-service:
+    build:
+      context: ./services/audit-service
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      DEVICE_SERVICE_URL: http://device-service:8080
+      INVENTORY_SERVICE_URL: http://inventory-service:8080
+      WORKFLOW_SERVICE_URL: http://workflow-service:8080
+      NOTIFICATION_SERVICE_URL: http://notification-service:8080
+      AUDIT_SERVICE_URL: http://audit-service:8080
+    depends_on:
+      - device-service
+      - inventory-service
+      - workflow-service
+      - notification-service
+      - audit-service
+
+volumes:
+  device_postgres_data:
+  redis_data:
+  rabbitmq_data:

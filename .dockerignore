@@ -1,0 +1,11 @@
+# BEGIN TELECOM PLATFORM GENERATED
+.git
+.platform-backups
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.venv
+.env
+.env.platform
+# END TELECOM PLATFORM GENERATED

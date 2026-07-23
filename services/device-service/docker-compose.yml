@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: telecom-device-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: device_db
+      POSTGRES_USER: device_user
+      POSTGRES_PASSWORD: device_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - device_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U device_user -d device_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  device-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telecom-device-service
+    restart: unless-stopped
+    environment:
+      SERVICE_NAME: device-service
+      SERVICE_VERSION: 1.0.0
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      DOCS_ENABLED: "true"
+      DATABASE_URL: postgresql+psycopg://device_user:device_password@postgres:5432/device_db
+      DATABASE_POOL_SIZE: 5
+      DATABASE_MAX_OVERFLOW: 10
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - |
+        alembic upgrade head
+        exec uvicorn app.main:app --host 0.0.0.0 --port 8080
+
+volumes:
+  device_postgres_data:

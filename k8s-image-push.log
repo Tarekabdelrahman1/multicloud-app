@@ -1,0 +1,2629 @@
+========================================
+1. Detect Artifact Registry location
+========================================
+Listing items under project devops-project-503113, across all locations.
+
+Repository resource: projects/devops-project-503113/locations/us-central1/repositories/dev-docker
+Location:            us-central1
+Registry:            us-central1-docker.pkg.dev
+Image prefix:        us-central1-docker.pkg.dev/devops-project-503113/dev-docker
+Image tag:           phase3-complete
+
+========================================
+2. Configure Docker authentication
+========================================
+WARNING: Your config file at [/home/tarek/.docker/config.json] contains these credential helper entries:
+
+{
+  "credHelpers": {
+    "us-central1-docker.pkg.dev": "gcloud"
+  }
+}
+Adding credentials for: us-central1-docker.pkg.dev
+gcloud credential helpers already registered correctly.
+
+========================================
+3. Validate Compose configuration
+========================================
+✅ Found: api-gateway
+✅ Found: device-service
+✅ Found: inventory-service
+✅ Found: workflow-service
+✅ Found: notification-service
+✅ Found: audit-service
+
+========================================
+4. Build, tag and push images
+========================================
+
+----------------------------------------
+Processing: api-gateway
+----------------------------------------
+Building api-gateway...
+ Image devops-portfolio-notification-service Building 
+ Image devops-portfolio-api-gateway Building 
+ Image devops-portfolio-workflow-service Building 
+ Image devops-portfolio-inventory-service Building 
+ Image devops-portfolio-device-service Building 
+ Image devops-portfolio-audit-service Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 2.98kB done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.11kB 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 1.4s
+
+#4 [internal] load .dockerignore
+#4 transferring context:
+#4 transferring context: 221B 0.0s done
+#4 DONE 0.6s
+
+#5 [internal] load build context
+#5 DONE 0.0s
+
+#6 [builder 1/4] FROM docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+#6 resolve docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+#6 resolve docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de 0.2s done
+#6 DONE 0.2s
+
+#5 [internal] load build context
+#5 transferring context: 512B 0.4s done
+#5 DONE 0.4s
+
+#7 [runtime 5/7] COPY libs/common/common /opt/common/common
+#7 CACHED
+
+#8 [runtime 2/7] RUN groupadd --gid 10001 appgroup     && useradd --uid 10001 --gid appgroup --create-home --shell /usr/sbin/nologin appuser
+#8 CACHED
+
+#9 [runtime 3/7] WORKDIR /app
+#9 CACHED
+
+#10 [builder 4/4] RUN pip install --no-cache-dir --upgrade pip     && pip install --no-cache-dir -r /tmp/requirements.txt
+#10 CACHED
+
+#11 [runtime 6/7] COPY services/api-gateway/app /app/app
+#11 CACHED
+
+#12 [builder 2/4] RUN python -m venv /opt/venv
+#12 CACHED
+
+#13 [builder 3/4] COPY services/api-gateway/requirements.txt /tmp/requirements.txt
+#13 CACHED
+
+#14 [runtime 4/7] COPY --from=builder /opt/venv /opt/venv
+#14 CACHED
+
+#15 [runtime 7/7] RUN chown -R appuser:appgroup /app /opt/common
+#15 CACHED
+
+#16 exporting to image
+#16 exporting layers 0.0s done
+#16 exporting manifest sha256:1c3a9b35271e20517753fa345433c31cbcaed19195b574c6abef2d53e8f4cc35 done
+#16 exporting config sha256:f6affc56c00255a6df75dcff4780f7c62ed598dedd910d57fecec43ab2dae444 done
+#16 exporting attestation manifest sha256:44b6a4a27660243dad093bbb841ffcab1dddb58d5ccca097029eca83c1922630 0.1s done
+#16 exporting manifest list sha256:07f89327ff93969b64f236a1e801647bb0214902f4ff67452ec06aec01859bd0
+#16 exporting manifest list sha256:07f89327ff93969b64f236a1e801647bb0214902f4ff67452ec06aec01859bd0 0.0s done
+#16 naming to docker.io/library/devops-portfolio-api-gateway:latest done
+#16 unpacking to docker.io/library/devops-portfolio-api-gateway:latest 0.2s done
+#16 DONE 0.7s
+
+#17 resolving provenance for metadata file
+#17 DONE 0.2s
+ Image devops-portfolio-api-gateway Built 
+Checking local image...
+Local image:
+  devops-portfolio-api-gateway:latest
+Remote image:
+  us-central1-docker.pkg.dev/devops-project-503113/dev-docker/api-gateway:phase3-complete
+The push refers to repository [us-central1-docker.pkg.dev/devops-project-503113/dev-docker/api-gateway]
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+48347b15c85f: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+4b5d005a936c: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+4b5d005a936c: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+4b5d005a936c: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+4b5d005a936c: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+55ae7990e922: Waiting
+9a008c29a075: Waiting
+e5b09f12e52d: Waiting
+98db2485a0d0: Waiting
+4b5d005a936c: Waiting
+e46b05e2b4ad: Pushed
+55ae7990e922: Pushed
+9a008c29a075: Pushed
+fd079632edc0: Pushed
+74264aec623d: Pushed
+ee1a719f36cf: Pushed
+4b5d005a936c: Pushed
+98db2485a0d0: Pushed
+48347b15c85f: Pushed
+062e450697fa: Pushed
+e5b09f12e52d: Pushed
+phase3-complete: digest: sha256:07f89327ff93969b64f236a1e801647bb0214902f4ff67452ec06aec01859bd0 size: 856
+✅ Completed: api-gateway
+
+----------------------------------------
+Processing: device-service
+----------------------------------------
+Building device-service...
+ Image devops-portfolio-device-service Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 606B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.07kB 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 0.9s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 164B 0.0s done
+#4 DONE 0.1s
+
+#5 [internal] load build context
+#5 DONE 0.0s
+
+#6 [builder 1/5] FROM docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+#6 resolve docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de 0.1s done
+#6 DONE 0.1s
+
+#5 [internal] load build context
+#5 transferring context: 3.60kB 0.2s done
+#5 DONE 0.2s
+
+#7 [runtime 8/9] COPY scripts ./scripts
+#7 CACHED
+
+#8 [builder 3/5] WORKDIR /build
+#8 CACHED
+
+#9 [runtime 6/9] COPY alembic ./alembic
+#9 CACHED
+
+#10 [runtime 2/9] RUN groupadd --gid 10001 appgroup     && useradd         --uid 10001         --gid appgroup         --create-home         --shell /usr/sbin/nologin         appuser
+#10 CACHED
+
+#11 [runtime 3/9] WORKDIR /app
+#11 CACHED
+
+#12 [builder 4/5] COPY requirements.txt .
+#12 CACHED
+
+#13 [builder 5/5] RUN pip install --no-cache-dir --upgrade pip     && pip install --no-cache-dir -r requirements.txt
+#13 CACHED
+
+#14 [builder 2/5] RUN python -m venv /opt/venv
+#14 CACHED
+
+#15 [runtime 4/9] COPY --from=builder /opt/venv /opt/venv
+#15 CACHED
+
+#16 [runtime 5/9] COPY app ./app
+#16 CACHED
+
+#17 [runtime 7/9] COPY alembic.ini .
+#17 CACHED
+
+#18 [runtime 9/9] RUN chown -R appuser:appgroup /app
+#18 CACHED
+
+#19 exporting to image
+#19 exporting layers 0.0s done
+#19 exporting manifest sha256:af70cd2ee9f6d8eb516f2eb15aa01e4505dfe1aa1f3fca0741d0bd92a9bb37ff done
+#19 exporting config sha256:c92372cc03f312fbeccef3a03c024c55a9b5af86ad6f7917336b89cb0d952b1f done
+#19 exporting attestation manifest sha256:b6e7f4517e196c5ceafa6c7103daf5b88ab7c809d1a6abf4328836ada48b0468 0.0s done
+#19 exporting manifest list sha256:16d614068a02b6234d5b5f60ce16b6d3462f629a8af46520d7e32c82908c5950 0.0s done
+#19 naming to docker.io/library/devops-portfolio-device-service:latest done
+#19 unpacking to docker.io/library/devops-portfolio-device-service:latest
+#19 unpacking to docker.io/library/devops-portfolio-device-service:latest 0.1s done
+#19 DONE 0.4s
+
+#20 resolving provenance for metadata file
+#20 DONE 0.3s
+ Image devops-portfolio-device-service Built 
+Checking local image...
+Local image:
+  devops-portfolio-device-service:latest
+Remote image:
+  us-central1-docker.pkg.dev/devops-project-503113/dev-docker/device-service:phase3-complete
+The push refers to repository [us-central1-docker.pkg.dev/devops-project-503113/dev-docker/device-service]
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+48347b15c85f: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+48347b15c85f: Layer already exists
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+ac406ae7bc11: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+e6010e791782: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+36131833aa91: Waiting
+fd079632edc0: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+8b1ef13fdf01: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+36131833aa91: Waiting
+fd079632edc0: Layer already exists
+062e450697fa: Layer already exists
+98db2485a0d0: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+e6010e791782: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+36131833aa91: Waiting
+98db2485a0d0: Layer already exists
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+84d145e41cd3: Waiting
+2b2c8b52b9cf: Waiting
+36131833aa91: Waiting
+0a7d258a4493: Waiting
+ebb6886a02dc: Waiting
+50f4f8e6bae8: Waiting
+8b1ef13fdf01: Waiting
+e6010e791782: Waiting
+ac406ae7bc11: Pushed
+0a7d258a4493: Pushed
+e6010e791782: Pushed
+50f4f8e6bae8: Pushed
+8b1ef13fdf01: Pushed
+84d145e41cd3: Pushed
+2b2c8b52b9cf: Pushed
+36131833aa91: Pushed
+ebb6886a02dc: Pushed
+phase3-complete: digest: sha256:16d614068a02b6234d5b5f60ce16b6d3462f629a8af46520d7e32c82908c5950 size: 856
+✅ Completed: device-service
+
+----------------------------------------
+Processing: inventory-service
+----------------------------------------
+Building inventory-service...
+ Image devops-portfolio-inventory-service Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 597B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.12kB 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 0.8s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 221B 0.0s done
+#4 DONE 0.0s
+
+#5 [builder 1/4] FROM docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+#5 resolve docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de 0.1s done
+#5 DONE 0.1s
+
+#6 [internal] load build context
+#6 transferring context: 10.80kB 0.1s done
+#6 DONE 0.1s
+
+#7 [builder 3/4] COPY services/inventory-service/requirements.txt /tmp/requirements.txt
+#7 CACHED
+
+#8 [runtime 5/7] COPY libs/common/common /opt/common/common
+#8 CACHED
+
+#9 [runtime 6/7] COPY services/inventory-service/app /app/app
+#9 CACHED
+
+#10 [runtime 2/7] RUN groupadd --gid 10001 appgroup     && useradd --uid 10001 --gid appgroup --create-home --shell /usr/sbin/nologin appuser
+#10 CACHED
+
+#11 [builder 4/4] RUN pip install --no-cache-dir --upgrade pip     && pip install --no-cache-dir -r /tmp/requirements.txt
+#11 CACHED
+
+#12 [runtime 3/7] WORKDIR /app
+#12 CACHED
+
+#13 [runtime 4/7] COPY --from=builder /opt/venv /opt/venv
+#13 CACHED
+
+#14 [builder 2/4] RUN python -m venv /opt/venv
+#14 CACHED
+
+#15 [runtime 7/7] RUN chown -R appuser:appgroup /app /opt/common
+#15 CACHED
+
+#16 exporting to image
+#16 exporting layers 0.0s done
+#16 exporting manifest sha256:ce25090d558d387b119b2b06f03547886f3ec17b363ea0aed7e957d2cf2f2ebd done
+#16 exporting config sha256:59c64dbbe2f9f0520c09553e9585a4c743bfb75c8c9560e84120510e5049ff86 done
+#16 exporting attestation manifest sha256:f6a8bfd03606ae7e36561c517e54c4716c1f296118357967d2e2f2ca9d3ff8de 0.1s done
+#16 exporting manifest list sha256:59049bfb5df574e66120fe0044ff587de18c1ce9449b29ecece7134311e6c313
+#16 exporting manifest list sha256:59049bfb5df574e66120fe0044ff587de18c1ce9449b29ecece7134311e6c313 0.0s done
+#16 naming to docker.io/library/devops-portfolio-inventory-service:latest done
+#16 unpacking to docker.io/library/devops-portfolio-inventory-service:latest 0.1s done
+#16 DONE 0.3s
+
+#17 resolving provenance for metadata file
+#17 DONE 0.1s
+ Image devops-portfolio-inventory-service Built 
+Checking local image...
+Local image:
+  devops-portfolio-inventory-service:latest
+Remote image:
+  us-central1-docker.pkg.dev/devops-project-503113/dev-docker/inventory-service:phase3-complete
+The push refers to repository [us-central1-docker.pkg.dev/devops-project-503113/dev-docker/inventory-service]
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+062e450697fa: Layer already exists
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+9d6d90a1b5e5: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+a7142f83c996: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+98db2485a0d0: Waiting
+9a04d11594fd: Waiting
+a7142f83c996: Waiting
+aa90a796a038: Waiting
+ee1a719f36cf: Layer already exists
+48347b15c85f: Waiting
+fd079632edc0: Layer already exists
+8719a30b3779: Waiting
+74264aec623d: Layer already exists
+98db2485a0d0: Layer already exists
+a7142f83c996: Waiting
+8719a30b3779: Waiting
+a7142f83c996: Waiting
+aa90a796a038: Waiting
+48347b15c85f: Layer already exists
+a7142f83c996: Waiting
+aa90a796a038: Waiting
+8719a30b3779: Waiting
+8719a30b3779: Waiting
+9d6d90a1b5e5: Pushed
+aa90a796a038: Pushed
+8719a30b3779: Pushed
+a7142f83c996: Pushed
+9a04d11594fd: Pushed
+phase3-complete: digest: sha256:59049bfb5df574e66120fe0044ff587de18c1ce9449b29ecece7134311e6c313 size: 856
+✅ Completed: inventory-service
+
+----------------------------------------
+Processing: workflow-service
+----------------------------------------
+Building workflow-service...
+ Image devops-portfolio-workflow-service Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 592B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.12kB 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 0.8s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 221B 0.0s done
+#4 DONE 0.0s
+
+#5 [builder 1/4] FROM docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+#5 resolve docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de 0.1s done
+#5 DONE 0.1s
+
+#6 [internal] load build context
+#6 transferring context: 13.56kB 0.1s done
+#6 DONE 0.1s
+
+#7 [runtime 4/7] COPY --from=builder /opt/venv /opt/venv
+#7 CACHED
+
+#8 [runtime 2/7] RUN groupadd --gid 10001 appgroup     && useradd --uid 10001 --gid appgroup --create-home --shell /usr/sbin/nologin appuser
+#8 CACHED
+
+#9 [builder 4/4] RUN pip install --no-cache-dir --upgrade pip     && pip install --no-cache-dir -r /tmp/requirements.txt
+#9 CACHED
+
+#10 [runtime 6/7] COPY services/workflow-service/app /app/app
+#10 CACHED
+
+#11 [runtime 3/7] WORKDIR /app
+#11 CACHED
+
+#12 [builder 2/4] RUN python -m venv /opt/venv
+#12 CACHED
+
+#13 [builder 3/4] COPY services/workflow-service/requirements.txt /tmp/requirements.txt
+#13 CACHED
+
+#14 [runtime 5/7] COPY libs/common/common /opt/common/common
+#14 CACHED
+
+#15 [runtime 7/7] RUN chown -R appuser:appgroup /app /opt/common
+#15 CACHED
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 0.0s done
+#16 exporting manifest sha256:ad5809168252433a7d6cd24d7987d8f7df593298a816e52f0b47b5b5b0c537de done
+#16 exporting config sha256:e3397f635a1979e74130906961495c263511ee04c2bd0c008781db9f0b0da5ab done
+#16 exporting attestation manifest sha256:f657f15963c3ae8dacd94e4819f34fa6652920aacacc4cf7c818390656593464
+#16 exporting attestation manifest sha256:f657f15963c3ae8dacd94e4819f34fa6652920aacacc4cf7c818390656593464 0.0s done
+#16 exporting manifest list sha256:059ffd49d16dece30dd39215219c774fb386c3d67270b96d1c40d026869d9eba 0.0s done
+#16 naming to docker.io/library/devops-portfolio-workflow-service:latest done
+#16 unpacking to docker.io/library/devops-portfolio-workflow-service:latest 0.1s done
+#16 DONE 0.3s
+
+#17 resolving provenance for metadata file
+#17 DONE 0.1s
+ Image devops-portfolio-workflow-service Built 
+Checking local image...
+Local image:
+  devops-portfolio-workflow-service:latest
+Remote image:
+  us-central1-docker.pkg.dev/devops-project-503113/dev-docker/workflow-service:phase3-complete
+The push refers to repository [us-central1-docker.pkg.dev/devops-project-503113/dev-docker/workflow-service]
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+0449c7ff5926: Waiting
+74264aec623d: Waiting
+062e450697fa: Layer already exists
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+1d2c41274595: Waiting
+fd079632edc0: Layer already exists
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+14ea20a7d034: Waiting
+14ea20a7d034: Waiting
+74264aec623d: Layer already exists
+ee1a719f36cf: Layer already exists
+48347b15c85f: Layer already exists
+9a04d11594fd: Layer already exists
+1d2c41274595: Waiting
+98db2485a0d0: Layer already exists
+8719a30b3779: Layer already exists
+1d2c41274595: Waiting
+1d2c41274595: Waiting
+1d2c41274595: Waiting
+0449c7ff5926: Pushed
+14ea20a7d034: Pushed
+1d2c41274595: Pushed
+phase3-complete: digest: sha256:059ffd49d16dece30dd39215219c774fb386c3d67270b96d1c40d026869d9eba size: 856
+✅ Completed: workflow-service
+
+----------------------------------------
+Processing: notification-service
+----------------------------------------
+Building notification-service...
+ Image devops-portfolio-notification-service Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 612B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.13kB 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 0.4s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 221B 0.0s done
+#4 DONE 0.0s
+
+#5 [builder 1/4] FROM docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+#5 resolve docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de 0.1s done
+#5 DONE 0.1s
+
+#6 [internal] load build context
+#6 transferring context: 9.99kB 0.1s done
+#6 DONE 0.1s
+
+#7 [builder 3/4] COPY services/notification-service/requirements.txt /tmp/requirements.txt
+#7 CACHED
+
+#8 [runtime 5/7] COPY libs/common/common /opt/common/common
+#8 CACHED
+
+#9 [runtime 6/7] COPY services/notification-service/app /app/app
+#9 CACHED
+
+#10 [builder 4/4] RUN pip install --no-cache-dir --upgrade pip     && pip install --no-cache-dir -r /tmp/requirements.txt
+#10 CACHED
+
+#11 [runtime 2/7] RUN groupadd --gid 10001 appgroup     && useradd --uid 10001 --gid appgroup --create-home --shell /usr/sbin/nologin appuser
+#11 CACHED
+
+#12 [runtime 3/7] WORKDIR /app
+#12 CACHED
+
+#13 [runtime 4/7] COPY --from=builder /opt/venv /opt/venv
+#13 CACHED
+
+#14 [builder 2/4] RUN python -m venv /opt/venv
+#14 CACHED
+
+#15 [runtime 7/7] RUN chown -R appuser:appgroup /app /opt/common
+#15 CACHED
+
+#16 exporting to image
+#16 exporting layers 0.0s done
+#16 exporting manifest sha256:8b48bc8cb68f7d10fc8cd0c340861fd87fc43631e5d4b75032299aaebb2bd871 0.0s done
+#16 exporting config sha256:81da89b5ab0190f89274e04ca9c39f6e9a324efad3fcad0ab41fe45da60a45e2 done
+#16 exporting attestation manifest sha256:50f8faa3a4d522f1a005065c2ff00f354a86a3181bfec06a8ce0e1aba9fa4a08
+#16 exporting attestation manifest sha256:50f8faa3a4d522f1a005065c2ff00f354a86a3181bfec06a8ce0e1aba9fa4a08 0.0s done
+#16 exporting manifest list sha256:be1d52221bfd19694576dc9c04f88305a8dc28467b40cc4d8061a87c3e98e931 0.0s done
+#16 naming to docker.io/library/devops-portfolio-notification-service:latest done
+#16 unpacking to docker.io/library/devops-portfolio-notification-service:latest 0.1s done
+#16 DONE 0.4s
+
+#17 resolving provenance for metadata file
+#17 DONE 0.1s
+ Image devops-portfolio-notification-service Built 
+Checking local image...
+Local image:
+  devops-portfolio-notification-service:latest
+Remote image:
+  us-central1-docker.pkg.dev/devops-project-503113/dev-docker/notification-service:phase3-complete
+The push refers to repository [us-central1-docker.pkg.dev/devops-project-503113/dev-docker/notification-service]
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Layer already exists
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+9a04d11594fd: Layer already exists
+48347b15c85f: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+ee1a719f36cf: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Waiting
+48347b15c85f: Waiting
+870567a52d80: Waiting
+fd079632edc0: Waiting
+74264aec623d: Layer already exists
+ee1a719f36cf: Waiting
+8719a30b3779: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Waiting
+062e450697fa: Layer already exists
+48347b15c85f: Layer already exists
+8719a30b3779: Layer already exists
+461e37bb4b08: Waiting
+870567a52d80: Waiting
+fd079632edc0: Layer already exists
+ee1a719f36cf: Layer already exists
+870567a52d80: Waiting
+461e37bb4b08: Waiting
+d9bc78375263: Pushed
+461e37bb4b08: Pushed
+870567a52d80: Pushed
+phase3-complete: digest: sha256:be1d52221bfd19694576dc9c04f88305a8dc28467b40cc4d8061a87c3e98e931 size: 856
+✅ Completed: notification-service
+
+----------------------------------------
+Processing: audit-service
+----------------------------------------
+Building audit-service...
+ Image devops-portfolio-audit-service Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 577B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.11kB 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 0.4s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 221B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 DONE 0.0s
+
+#6 [builder 1/4] FROM docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
+#6 resolve docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de 0.1s done
+#6 DONE 0.1s
+
+#5 [internal] load build context
+#5 transferring context: 7.84kB 0.1s done
+#5 DONE 0.1s
+
+#7 [runtime 2/7] RUN groupadd --gid 10001 appgroup     && useradd --uid 10001 --gid appgroup --create-home --shell /usr/sbin/nologin appuser
+#7 CACHED
+
+#8 [builder 2/4] RUN python -m venv /opt/venv
+#8 CACHED
+
+#9 [runtime 6/7] COPY services/audit-service/app /app/app
+#9 CACHED
+
+#10 [builder 4/4] RUN pip install --no-cache-dir --upgrade pip     && pip install --no-cache-dir -r /tmp/requirements.txt
+#10 CACHED
+
+#11 [runtime 3/7] WORKDIR /app
+#11 CACHED
+
+#12 [runtime 5/7] COPY libs/common/common /opt/common/common
+#12 CACHED
+
+#13 [builder 3/4] COPY services/audit-service/requirements.txt /tmp/requirements.txt
+#13 CACHED
+
+#14 [runtime 4/7] COPY --from=builder /opt/venv /opt/venv
+#14 CACHED
+
+#15 [runtime 7/7] RUN chown -R appuser:appgroup /app /opt/common
+#15 CACHED
+
+#16 exporting to image
+#16 exporting layers 0.1s done
+#16 exporting manifest sha256:c08848a35a8043e0a947d56c9b8ad9ab5ec2b0a876a2f76c4b0d4ce8e9438385 done
+#16 exporting config sha256:c40743e42dd81f2cf4e8e4eb5d438efbed67e6593947b7c6b02ce5d4eb8abd14 done
+#16 exporting attestation manifest sha256:77c6cb7c08ec82469d2e74d7c606ae6f8fa864301ecfecaa149877f38d23e7fd
+#16 exporting attestation manifest sha256:77c6cb7c08ec82469d2e74d7c606ae6f8fa864301ecfecaa149877f38d23e7fd 0.1s done
+#16 exporting manifest list sha256:fb3634ce599b9d4fe0a7856fef176d4e63ad1435905f2e7898d76aafc1595716 0.0s done
+#16 naming to docker.io/library/devops-portfolio-audit-service:latest 0.0s done
+#16 unpacking to docker.io/library/devops-portfolio-audit-service:latest
+#16 unpacking to docker.io/library/devops-portfolio-audit-service:latest 0.1s done
+#16 DONE 0.5s
+
+#17 resolving provenance for metadata file
+#17 DONE 0.1s
+ Image devops-portfolio-audit-service Built 
+Checking local image...
+Local image:
+  devops-portfolio-audit-service:latest
+Remote image:
+  us-central1-docker.pkg.dev/devops-project-503113/dev-docker/audit-service:phase3-complete
+The push refers to repository [us-central1-docker.pkg.dev/devops-project-503113/dev-docker/audit-service]
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+74264aec623d: Layer already exists
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+9a04d11594fd: Layer already exists
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+23a833a634fc: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+8719a30b3779: Waiting
+23a833a634fc: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Waiting
+d680f7b10d84: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+fd079632edc0: Layer already exists
+d680f7b10d84: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Waiting
+98db2485a0d0: Waiting
+ee1a719f36cf: Waiting
+48347b15c85f: Layer already exists
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Waiting
+d680f7b10d84: Waiting
+ee1a719f36cf: Waiting
+98db2485a0d0: Waiting
+23a833a634fc: Waiting
+8719a30b3779: Waiting
+4e5adc9c95b0: Waiting
+062e450697fa: Layer already exists
+d680f7b10d84: Waiting
+23a833a634fc: Waiting
+8719a30b3779: Layer already exists
+4e5adc9c95b0: Waiting
+d680f7b10d84: Waiting
+ee1a719f36cf: Layer already exists
+98db2485a0d0: Layer already exists
+23a833a634fc: Waiting
+4e5adc9c95b0: Waiting
+d680f7b10d84: Waiting
+23a833a634fc: Waiting
+23a833a634fc: Waiting
+d680f7b10d84: Pushed
+4e5adc9c95b0: Pushed
+23a833a634fc: Pushed
+phase3-complete: digest: sha256:fb3634ce599b9d4fe0a7856fef176d4e63ad1435905f2e7898d76aafc1595716 size: 856
+✅ Completed: audit-service
+
+========================================
+5. Verify uploaded images
+========================================
+Listing items under project devops-project-503113, location us-central1, repository dev-docker.
+
+IMAGE                 TAGS             DIGEST
+api-gateway           phase3-complete  sha256:07f89327ff93969b64f236a1e801647bb0214902f4ff67452ec06aec01859bd0
+api-gateway                            sha256:1c3a9b35271e20517753fa345433c31cbcaed19195b574c6abef2d53e8f4cc35
+api-gateway                            sha256:44b6a4a27660243dad093bbb841ffcab1dddb58d5ccca097029eca83c1922630
+audit-service                          sha256:77c6cb7c08ec82469d2e74d7c606ae6f8fa864301ecfecaa149877f38d23e7fd
+audit-service                          sha256:c08848a35a8043e0a947d56c9b8ad9ab5ec2b0a876a2f76c4b0d4ce8e9438385
+audit-service         phase3-complete  sha256:fb3634ce599b9d4fe0a7856fef176d4e63ad1435905f2e7898d76aafc1595716
+device-service        phase3-complete  sha256:16d614068a02b6234d5b5f60ce16b6d3462f629a8af46520d7e32c82908c5950
+device-service                         sha256:af70cd2ee9f6d8eb516f2eb15aa01e4505dfe1aa1f3fca0741d0bd92a9bb37ff
+device-service                         sha256:b6e7f4517e196c5ceafa6c7103daf5b88ab7c809d1a6abf4328836ada48b0468
+inventory-service     phase3-complete  sha256:59049bfb5df574e66120fe0044ff587de18c1ce9449b29ecece7134311e6c313
+inventory-service                      sha256:ce25090d558d387b119b2b06f03547886f3ec17b363ea0aed7e957d2cf2f2ebd
+inventory-service                      sha256:f6a8bfd03606ae7e36561c517e54c4716c1f296118357967d2e2f2ca9d3ff8de
+my-app                v1               sha256:5d586b6d9574ce96954142cdca85f4903a0efdbd4d04d4fe27c9fb245cdf91d4
+notification-service                   sha256:50f8faa3a4d522f1a005065c2ff00f354a86a3181bfec06a8ce0e1aba9fa4a08
+notification-service                   sha256:8b48bc8cb68f7d10fc8cd0c340861fd87fc43631e5d4b75032299aaebb2bd871
+notification-service  phase3-complete  sha256:be1d52221bfd19694576dc9c04f88305a8dc28467b40cc4d8061a87c3e98e931
+workflow-service      phase3-complete  sha256:059ffd49d16dece30dd39215219c774fb386c3d67270b96d1c40d026869d9eba
+workflow-service                       sha256:ad5809168252433a7d6cd24d7987d8f7df593298a816e52f0b47b5b5b0c537de
+workflow-service                       sha256:f657f15963c3ae8dacd94e4819f34fa6652920aacacc4cf7c818390656593464
+
+========================================
+✅ ALL IMAGES BUILT AND PUSHED
+========================================
+IMAGE_PREFIX=us-central1-docker.pkg.dev/devops-project-503113/dev-docker
+IMAGE_TAG=phase3-complete

@@ -1,0 +1,18 @@
+SHELL := /bin/bash
+COMPOSE := docker compose --env-file .env.platform -f docker-compose.platform.yml
+
+.PHONY: up down logs ps rebuild smoke clean-data
+up:
+	$(COMPOSE) up --build -d
+down:
+	$(COMPOSE) down
+logs:
+	$(COMPOSE) logs -f --tail=200
+ps:
+	$(COMPOSE) ps
+rebuild:
+	$(COMPOSE) build --no-cache
+smoke:
+	set -a; source .env.platform; set +a; ./scripts/platform-smoke-test.sh
+clean-data:
+	$(COMPOSE) down -v

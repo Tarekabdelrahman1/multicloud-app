@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: valkey
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: valkey
+
+  template:
+    metadata:
+      labels:
+        app: valkey
+
+    spec:
+      containers:
+        - name: valkey
+          image: us-central1-docker.pkg.dev/devops-project-503113/dev-docker/my-app:v1
+          ports:
+            - containerPort: 6379

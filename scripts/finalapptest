@@ -1,0 +1,519 @@
+#!/usr/bin/env bash
+# Final end-to-end acceptance test for Telecom Platform Phase 3.
+#
+# Run from the devops-portfolio repository root:
+#   chmod +x scripts/phase3-final-test.sh
+#   ./scripts/phase3-final-test.sh
+#
+# Optional:
+#   BASE_URL=http://localhost:8080 ./scripts/phase3-final-test.sh
+#   AUTO_START=0 ./scripts/phase3-final-test.sh
+
+set -uo pipefail
+
+PROJECT_NAME="${PROJECT_NAME:-devops-portfolio}"
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.platform.yml}"
+ENV_FILE="${ENV_FILE:-.env.platform}"
+BASE_URL="${BASE_URL:-http://localhost:8080}"
+AUTO_START="${AUTO_START:-1}"
+
+PASS_COUNT=0
+FAIL_COUNT=0
+WARN_COUNT=0
+TOKEN=""
+INVENTORY_ID=""
+SUCCESS_WORKFLOW_ID=""
+FAILED_WORKFLOW_ID=""
+RUN_ID="$(date +%Y%m%d-%H%M%S)-$$"
+TMP_DIR="$(mktemp -d)"
+LAST_CODE=""
+LAST_BODY=""
+
+cleanup() {
+  rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
+
+pass() {
+  PASS_COUNT=$((PASS_COUNT + 1))
+  printf 'PASS  %s\n' "$1"
+}
+
+fail() {
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+  printf 'FAIL  %s\n' "$1" >&2
+}
+
+warn() {
+  WARN_COUNT=$((WARN_COUNT + 1))
+  printf 'WARN  %s\n' "$1"
+}
+
+section() {
+  printf '\n============================================================\n'
+  printf '%s\n' "$1"
+  printf '============================================================\n'
+}
+
+need_command() {
+  if command -v "$1" >/dev/null 2>&1; then
+    pass "Required command exists: $1"
+  else
+    fail "Missing required command: $1"
+  fi
+}
+
+json_field() {
+  local body="$1"
+  local field="$2"
+  printf '%s' "$body" | python3 -c '
+import json, sys
+field = sys.argv[1]
+try:
+    data = json.load(sys.stdin)
+    value = data[field]
+except Exception:
+    sys.exit(1)
+if isinstance(value, (dict, list)):
+    print(json.dumps(value))
+elif value is None:
+    print("")
+else:
+    print(value)
+' "$field"
+}
+
+json_contains() {
+  local body="$1"
+  local needle="$2"
+  printf '%s' "$body" | python3 -c '
+import json, sys
+needle = sys.argv[1]
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+text = json.dumps(data, sort_keys=True)
+sys.exit(0 if needle in text else 1)
+' "$needle"
+}
+
+call_api() {
+  local method="$1"
+  local path="$2"
+  local data="${3:-}"
+  local use_auth="${4:-1}"
+  local output_file="$TMP_DIR/response.json"
+  local -a args
+
+  args=(
+    -sS
+    -X "$method"
+    "$BASE_URL$path"
+    -o "$output_file"
+    -w '%{http_code}'
+  )
+
+  if [[ "$use_auth" == "1" && -n "$TOKEN" ]]; then
+    args+=(-H "authorization: Bearer $TOKEN")
+  fi
+
+  if [[ -n "$data" ]]; then
+    args+=(
+      -H 'content-type: application/json'
+      -d "$data"
+    )
+  fi
+
+  LAST_CODE="$(curl "${args[@]}" 2>"$TMP_DIR/curl-error.log" || true)"
+  LAST_BODY="$(cat "$output_file" 2>/dev/null || true)"
+
+  if [[ -z "$LAST_CODE" ]]; then
+    LAST_CODE="000"
+  fi
+}
+
+expect_code() {
+  local expected="$1"
+  local description="$2"
+  if [[ "$LAST_CODE" == "$expected" ]]; then
+    pass "$description (HTTP $LAST_CODE)"
+  else
+    fail "$description: expected HTTP $expected, received $LAST_CODE. Body: $LAST_BODY"
+  fi
+}
+
+wait_for_gateway() {
+  local attempt
+  for attempt in $(seq 1 60); do
+    if curl -fsS "$BASE_URL/health/live" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+wait_for_workflow_state() {
+  local workflow_id="$1"
+  local expected_state="$2"
+  local attempt state
+
+  for attempt in $(seq 1 30); do
+    call_api GET "/api/v1/workflows/$workflow_id" "" 1
+    if [[ "$LAST_CODE" == "200" ]]; then
+      state="$(json_field "$LAST_BODY" state 2>/dev/null || true)"
+      if [[ "$state" == "$expected_state" ]]; then
+        return 0
+      fi
+      if [[ "$state" == "failed" && "$expected_state" != "failed" ]]; then
+        return 1
+      fi
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+find_repo_root() {
+  local candidate="$PWD"
+  while [[ "$candidate" != "/" ]]; do
+    if [[ -f "$candidate/$COMPOSE_FILE" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+    candidate="$(dirname "$candidate")"
+  done
+  return 1
+}
+
+section "1. Prerequisites"
+
+need_command docker
+need_command curl
+need_command python3
+
+if [[ "$FAIL_COUNT" -gt 0 ]]; then
+  printf '\nCannot continue because prerequisites are missing.\n'
+  exit 1
+fi
+
+ROOT="$(find_repo_root || true)"
+if [[ -z "$ROOT" ]]; then
+  fail "Could not find $COMPOSE_FILE. Run this script from the devops-portfolio repository."
+  exit 1
+fi
+cd "$ROOT"
+pass "Repository root detected: $ROOT"
+
+if [[ -f "$ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  set -a
+  source "$ENV_FILE"
+  set +a
+  pass "Loaded environment file: $ENV_FILE"
+else
+  fail "Environment file not found: $ENV_FILE"
+  exit 1
+fi
+
+USERNAME="${GATEWAY_ADMIN_USERNAME:-admin}"
+PASSWORD="${GATEWAY_ADMIN_PASSWORD:-change-this-password}"
+
+COMPOSE=(
+  docker compose
+  -p "$PROJECT_NAME"
+  --env-file "$ENV_FILE"
+  -f "$COMPOSE_FILE"
+)
+
+section "2. Docker Compose configuration and containers"
+
+if "${COMPOSE[@]}" config -q >/dev/null 2>&1; then
+  pass "Docker Compose configuration is valid"
+else
+  fail "Docker Compose configuration is invalid"
+fi
+
+if [[ "$AUTO_START" == "1" ]]; then
+  if "${COMPOSE[@]}" up -d >/dev/null; then
+    pass "Compose stack is started"
+  else
+    fail "Compose stack could not be started"
+  fi
+else
+  warn "AUTO_START=0: the script did not start the stack"
+fi
+
+if wait_for_gateway; then
+  pass "API Gateway became reachable"
+else
+  fail "API Gateway did not become reachable at $BASE_URL"
+fi
+
+REQUIRED_RUNNING_SERVICES=(
+  postgres
+  redis
+  rabbitmq
+  device-service
+  inventory-service
+  workflow-service
+  notification-service
+  audit-service
+  api-gateway
+  workflow-worker
+  notification-consumer
+  audit-consumer
+)
+
+RUNNING_SERVICES="$("${COMPOSE[@]}" ps --services --status running 2>/dev/null || true)"
+for service in "${REQUIRED_RUNNING_SERVICES[@]}"; do
+  if grep -Fxq "$service" <<<"$RUNNING_SERVICES"; then
+    pass "Container process is running: $service"
+  else
+    fail "Container process is not running: $service"
+  fi
+done
+
+if "${COMPOSE[@]}" ps --format json 2>/dev/null | grep -q '"Health":"unhealthy"'; then
+  warn "Some background containers may display unhealthy because their image has an HTTP healthcheck while they run a worker/consumer process without an HTTP server. The event-flow tests below are the functional proof."
+fi
+
+section "3. Infrastructure checks"
+
+if "${COMPOSE[@]}" exec -T postgres pg_isready >/dev/null 2>&1; then
+  pass "PostgreSQL accepts connections"
+else
+  fail "PostgreSQL is not ready"
+fi
+
+REDIS_RESULT="$("${COMPOSE[@]}" exec -T redis redis-cli ping 2>/dev/null | tr -d '\r' || true)"
+if [[ "$REDIS_RESULT" == "PONG" ]]; then
+  pass "Redis responds with PONG"
+else
+  fail "Redis ping failed: $REDIS_RESULT"
+fi
+
+if "${COMPOSE[@]}" exec -T rabbitmq rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
+  pass "RabbitMQ responds to diagnostics ping"
+else
+  fail "RabbitMQ ping failed"
+fi
+
+section "4. Gateway health and authentication"
+
+call_api GET "/health/live" "" 0
+expect_code 200 "Gateway liveness"
+
+call_api GET "/health/ready" "" 0
+expect_code 200 "Gateway readiness"
+if json_contains "$LAST_BODY" '"status": "ready"'; then
+  pass "Gateway reports the platform as ready"
+else
+  fail "Gateway readiness response does not report ready: $LAST_BODY"
+fi
+
+call_api GET "/api/v1/inventory" "" 0
+expect_code 401 "Protected endpoint rejects a request without JWT"
+
+call_api POST "/auth/login" '{"username":"wrong-user","password":"wrong-password"}' 0
+expect_code 401 "Login rejects invalid credentials"
+
+LOGIN_PAYLOAD="$(python3 -c 'import json,sys; print(json.dumps({"username":sys.argv[1],"password":sys.argv[2]}))' "$USERNAME" "$PASSWORD")"
+call_api POST "/auth/login" "$LOGIN_PAYLOAD" 0
+expect_code 200 "Login accepts configured admin credentials"
+TOKEN="$(json_field "$LAST_BODY" access_token 2>/dev/null || true)"
+if [[ -n "$TOKEN" ]]; then
+  pass "JWT access token was returned"
+else
+  fail "Login response did not contain access_token: $LAST_BODY"
+fi
+
+section "5. Scenario A — low-stock inventory"
+
+INVENTORY_NAME="Nokia 100G SFP acceptance-$RUN_ID"
+INVENTORY_PAYLOAD="$(python3 -c '
+import json,sys
+print(json.dumps({
+  "name": sys.argv[1],
+  "category": "optic",
+  "quantity": 2,
+  "low_stock_threshold": 5,
+  "location": "Cairo Warehouse"
+}))
+' "$INVENTORY_NAME")"
+
+call_api POST "/api/v1/inventory" "$INVENTORY_PAYLOAD" 1
+expect_code 201 "Create a low-stock inventory item"
+INVENTORY_ID="$(json_field "$LAST_BODY" id 2>/dev/null || true)"
+if [[ -n "$INVENTORY_ID" ]]; then
+  pass "Inventory ID returned: $INVENTORY_ID"
+else
+  fail "Inventory response did not contain an ID: $LAST_BODY"
+fi
+
+call_api GET "/api/v1/inventory/$INVENTORY_ID" "" 1
+expect_code 200 "Read the inventory item through the gateway"
+if json_contains "$LAST_BODY" "$INVENTORY_NAME"; then
+  pass "Inventory data was persisted and returned"
+else
+  fail "Returned inventory data does not match the created item: $LAST_BODY"
+fi
+
+call_api PATCH "/api/v1/inventory/$INVENTORY_ID" '{"quantity":1}' 1
+expect_code 200 "Update inventory quantity"
+UPDATED_QUANTITY="$(json_field "$LAST_BODY" quantity 2>/dev/null || true)"
+if [[ "$UPDATED_QUANTITY" == "1" ]]; then
+  pass "Updated inventory quantity is persisted"
+else
+  fail "Expected updated quantity 1, received: $UPDATED_QUANTITY"
+fi
+
+section "6. Scenario B — successful asynchronous workflow"
+
+SUCCESS_WORKFLOW_NAME="Backup Cairo Router acceptance-$RUN_ID"
+SUCCESS_WORKFLOW_PAYLOAD="$(python3 -c '
+import json,sys
+print(json.dumps({
+  "name": sys.argv[1],
+  "action": "backup_config",
+  "parameters": {"destination": "gcs", "format": "md-cli"}
+}))
+' "$SUCCESS_WORKFLOW_NAME")"
+
+call_api POST "/api/v1/workflows" "$SUCCESS_WORKFLOW_PAYLOAD" 1
+expect_code 201 "Create a workflow"
+SUCCESS_WORKFLOW_ID="$(json_field "$LAST_BODY" id 2>/dev/null || true)"
+SUCCESS_INITIAL_STATE="$(json_field "$LAST_BODY" state 2>/dev/null || true)"
+if [[ "$SUCCESS_INITIAL_STATE" == "pending" ]]; then
+  pass "New workflow starts in pending state"
+else
+  fail "Expected pending state, received: $SUCCESS_INITIAL_STATE"
+fi
+
+call_api POST "/api/v1/workflows/$SUCCESS_WORKFLOW_ID/run" "" 1
+expect_code 202 "Queue the workflow for asynchronous execution"
+QUEUED_STATE="$(json_field "$LAST_BODY" state 2>/dev/null || true)"
+if [[ "$QUEUED_STATE" == "queued" ]]; then
+  pass "Workflow enters queued state"
+else
+  fail "Expected queued state, received: $QUEUED_STATE"
+fi
+
+if wait_for_workflow_state "$SUCCESS_WORKFLOW_ID" "completed"; then
+  pass "Workflow worker changed the state to completed"
+  if json_contains "$LAST_BODY" '"mode": "mock"'; then
+    pass "Workflow result confirms safe mock execution"
+  else
+    fail "Completed workflow does not contain a mock result: $LAST_BODY"
+  fi
+else
+  fail "Workflow did not reach completed state. Last response: $LAST_BODY"
+fi
+
+section "7. Scenario C — failed asynchronous workflow"
+
+FAILED_WORKFLOW_NAME="Failure Test acceptance-$RUN_ID"
+FAILED_WORKFLOW_PAYLOAD="$(python3 -c '
+import json,sys
+print(json.dumps({
+  "name": sys.argv[1],
+  "action": "fail_acceptance_test",
+  "parameters": {"reason": "prove failure handling"}
+}))
+' "$FAILED_WORKFLOW_NAME")"
+
+call_api POST "/api/v1/workflows" "$FAILED_WORKFLOW_PAYLOAD" 1
+expect_code 201 "Create a workflow that intentionally fails"
+FAILED_WORKFLOW_ID="$(json_field "$LAST_BODY" id 2>/dev/null || true)"
+
+call_api POST "/api/v1/workflows/$FAILED_WORKFLOW_ID/run" "" 1
+expect_code 202 "Queue the intentionally failing workflow"
+
+if wait_for_workflow_state "$FAILED_WORKFLOW_ID" "failed"; then
+  pass "Workflow worker changed the state to failed"
+  if json_contains "$LAST_BODY" "Mock failure requested"; then
+    pass "Failure reason was persisted"
+  else
+    fail "Failed workflow does not contain the expected error message: $LAST_BODY"
+  fi
+else
+  fail "Workflow did not reach failed state. Last response: $LAST_BODY"
+fi
+
+section "8. Scenario D — notifications and audit trail"
+
+sleep 3
+
+call_api GET "/api/v1/notifications?limit=500" "" 1
+expect_code 200 "Read notifications"
+NOTIFICATIONS="$LAST_BODY"
+
+for expected in "$INVENTORY_ID" "$SUCCESS_WORKFLOW_ID" "$FAILED_WORKFLOW_ID" "inventory.low_stock" "workflow.completed" "workflow.failed"; do
+  if json_contains "$NOTIFICATIONS" "$expected"; then
+    pass "Notification data contains: $expected"
+  else
+    fail "Notification data is missing: $expected"
+  fi
+done
+
+call_api GET "/api/v1/audit?limit=500" "" 1
+expect_code 200 "Read audit events"
+AUDIT_EVENTS="$LAST_BODY"
+
+for expected in "$INVENTORY_ID" "$SUCCESS_WORKFLOW_ID" "$FAILED_WORKFLOW_ID" "inventory.created" "inventory.low_stock" "workflow.created" "workflow.execute" "workflow.completed" "workflow.failed"; do
+  if json_contains "$AUDIT_EVENTS" "$expected"; then
+    pass "Audit data contains: $expected"
+  else
+    fail "Audit data is missing: $expected"
+  fi
+done
+
+section "9. RabbitMQ queues and consumers"
+
+QUEUE_TABLE="$("${COMPOSE[@]}" exec -T rabbitmq rabbitmqctl -q list_queues name consumers messages_ready messages_unacknowledged 2>/dev/null || true)"
+if [[ -n "$QUEUE_TABLE" ]]; then
+  printf '%s\n' "$QUEUE_TABLE"
+  pass "RabbitMQ queue information is available"
+else
+  fail "Could not read RabbitMQ queues"
+fi
+
+for queue in workflow.executor notification.events audit.all-events; do
+  if awk -v q="$queue" '$1 == q && $2 + 0 >= 1 {found=1} END {exit(found ? 0 : 1)}' <<<"$QUEUE_TABLE"; then
+    pass "Queue has at least one consumer: $queue"
+  else
+    fail "Queue is missing or has no consumer: $queue"
+  fi
+done
+
+section "10. Cleanup of the temporary inventory record"
+
+if [[ -n "$INVENTORY_ID" ]]; then
+  call_api DELETE "/api/v1/inventory/$INVENTORY_ID" "" 1
+  expect_code 204 "Delete the temporary inventory item"
+else
+  warn "No inventory ID was available for cleanup"
+fi
+
+section "11. Final result"
+
+printf 'Passed:   %d\n' "$PASS_COUNT"
+printf 'Warnings: %d\n' "$WARN_COUNT"
+printf 'Failed:   %d\n' "$FAIL_COUNT"
+
+if [[ "$FAIL_COUNT" -eq 0 ]]; then
+  printf '\nPHASE 3 ACCEPTANCE TEST: PASSED\n'
+  printf 'The API Gateway, JWT, REST routing, PostgreSQL persistence,\n'
+  printf 'RabbitMQ event flow, workflow worker, notification consumer,\n'
+  printf 'and audit consumer all worked together end to end.\n'
+  exit 0
+fi
+
+printf '\nPHASE 3 ACCEPTANCE TEST: FAILED\n'
+printf '\nLast 100 log lines from application and consumer containers:\n'
+"${COMPOSE[@]}" logs --no-color --tail=100 \
+  api-gateway inventory-service workflow-service workflow-worker \
+  notification-service notification-consumer audit-service audit-consumer \
+  2>/dev/null || true
+exit 1
