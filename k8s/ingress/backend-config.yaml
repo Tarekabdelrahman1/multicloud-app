@@ -1,0 +1,16 @@
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+
+metadata:
+  name: api-gateway-backend-config
+  namespace: telecom-platform
+
+spec:
+  healthCheck:
+    type: HTTP
+    requestPath: /health/live
+    port: 8080
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3

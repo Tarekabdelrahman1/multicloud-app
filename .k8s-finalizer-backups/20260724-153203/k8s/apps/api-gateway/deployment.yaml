@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: api-gateway
+  namespace: telecom-platform
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: api-gateway
+
+  strategy:
+    type: RollingUpdate
+
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+
+    spec:
+      containers:
+        - name: api-gateway
+          image: us-central1-docker.pkg.dev/devops-project-503113/dev-docker/api-gateway:phase3-complete
+
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8080
+
+          env:
+            - name: DEVICE_SERVICE_URL
+              value: "http://device-service:8080"
+
+            - name: INVENTORY_SERVICE_URL
+              value: "http://inventory-service:8080"
+
+            - name: WORKFLOW_SERVICE_URL
+              value: "http://workflow-service:8080"
+
+            - name: NOTIFICATION_SERVICE_URL
+              value: "http://notification-service:8080"
+
+            - name: AUDIT_SERVICE_URL
+              value: "http://audit-service:8080"
+
+            - name: REDIS_URL
+              value: "redis://redis:6379/0"
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3

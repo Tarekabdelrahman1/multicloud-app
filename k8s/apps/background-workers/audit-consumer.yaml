@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audit-consumer
+  namespace: telecom-platform
+  labels:
+    app.kubernetes.io/name: audit-consumer
+    app.kubernetes.io/part-of: telecom-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: audit-consumer
+  template:
+    metadata:
+      labels:
+        app: audit-consumer
+        app.kubernetes.io/name: audit-consumer
+        app.kubernetes.io/part-of: telecom-platform
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: audit-consumer
+          image: us-central1-docker.pkg.dev/devops-project-503113/dev-docker/audit-service:phase3-complete
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.consumer"]
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secret
+            - secretRef:
+                name: platform-runtime-urls
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi

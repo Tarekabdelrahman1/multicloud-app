@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: telecom-ingress
+  namespace: telecom-platform
+
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+
+spec:
+  defaultBackend:
+    service:
+      name: api-gateway
+      port:
+        number: 80

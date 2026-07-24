@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workflow-worker
+  namespace: telecom-platform
+  labels:
+    app.kubernetes.io/name: workflow-worker
+    app.kubernetes.io/part-of: telecom-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workflow-worker
+  template:
+    metadata:
+      labels:
+        app: workflow-worker
+        app.kubernetes.io/name: workflow-worker
+        app.kubernetes.io/part-of: telecom-platform
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: workflow-worker
+          image: us-central1-docker.pkg.dev/devops-project-503113/dev-docker/workflow-service:phase3-complete
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.worker"]
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secret
+            - secretRef:
+                name: platform-runtime-urls
+          env:
+            - name: EXECUTION_MODE
+              value: "mock"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi

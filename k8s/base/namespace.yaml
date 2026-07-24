@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: telecom-platform
+  labels:
+    app.kubernetes.io/name: telecom-platform
+    app.kubernetes.io/part-of: enterprise-telecom-platform
+    environment: development

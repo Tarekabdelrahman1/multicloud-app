@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-consumer
+  namespace: telecom-platform
+  labels:
+    app.kubernetes.io/name: notification-consumer
+    app.kubernetes.io/part-of: telecom-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-consumer
+  template:
+    metadata:
+      labels:
+        app: notification-consumer
+        app.kubernetes.io/name: notification-consumer
+        app.kubernetes.io/part-of: telecom-platform
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: notification-consumer
+          image: us-central1-docker.pkg.dev/devops-project-503113/dev-docker/notification-service:phase3-complete
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.consumer"]
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secret
+            - secretRef:
+                name: platform-runtime-urls
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
